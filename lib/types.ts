@@ -1,0 +1,20 @@
+export type Hospital = {
+  id: string;
+  slug: string;
+  name: string;
+  address: string | null;
+  city: string;
+  state: string;
+  pincode: string | null;
+  phone: string | null;
+  emails: string | null;
+  networkType: string | null;
+  bedCount: string | null;
+  icuBeds: string | null;
+  rohiniCode: string | null;
+  lat: number | null;
+  lon: number | null;
+  totalDoctors: string | null;
+  totalNurses: string | null;
+  nabhFlag: string | null;
+};

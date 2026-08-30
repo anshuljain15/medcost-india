@@ -1,0 +1,19 @@
+{
+  "cities": [
+    "Bangalore",
+    "Chennai",
+    "Delhi",
+    "Hyderabad",
+    "Mumbai",
+    "Pune"
+  ],
+  "total": 2684,
+  "generatedFromRows": {
+    "DELHI": 426,
+    "BANGALORE": 362,
+    "MUMBAI": 500,
+    "PUNE": 591,
+    "CHENNAI": 340,
+    "HYDERABAD": 465
+  }
+}
