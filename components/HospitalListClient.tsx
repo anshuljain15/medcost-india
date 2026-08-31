@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Hospital } from "@/lib/types";
+import { useTranslation } from "@/lib/i18n/LanguageProvider";
 
 type Props = {
   hospitals: Hospital[];
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export default function HospitalListClient({ hospitals, citySlug }: Props) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -23,17 +25,17 @@ export default function HospitalListClient({ hospitals, citySlug }: Props) {
   }, [hospitals, query]);
 
   return (
-    <div className="flex h-[520px] flex-col rounded-xl border border-ink-100 bg-white">
+    <div className="flex h-[520px] flex-col rounded-xl border border-ink-100 bg-surface">
       <div className="border-b border-ink-100 p-3">
         <input
           type="text"
-          placeholder="Search by hospital name or area..."
+          placeholder={t("city.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded-md border border-ink-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
+          className="w-full rounded-md border border-ink-300 bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-500"
         />
         <p className="mt-1 text-xs text-ink-500">
-          {filtered.length} of {hospitals.length} shown
+          {t("city.shownCount", { shown: filtered.length, total: hospitals.length })}
         </p>
       </div>
       <ul className="flex-1 divide-y divide-ink-100 overflow-y-auto">
@@ -57,7 +59,7 @@ export default function HospitalListClient({ hospitals, citySlug }: Props) {
           </li>
         ))}
         {filtered.length === 0 && (
-          <li className="px-4 py-6 text-center text-sm text-ink-500">No hospitals match.</li>
+          <li className="px-4 py-6 text-center text-sm text-ink-500">{t("city.noMatch")}</li>
         )}
       </ul>
     </div>

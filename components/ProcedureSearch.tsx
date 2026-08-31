@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Procedure } from "@/lib/types";
 import { formatINR } from "@/lib/format";
+import { useTranslation } from "@/lib/i18n/LanguageProvider";
 
 export default function ProcedureSearch({ procedures }: { procedures: Procedure[] }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
 
@@ -16,22 +18,20 @@ export default function ProcedureSearch({ procedures }: { procedures: Procedure[
   }, [procedures, query]);
 
   return (
-    <div className="relative w-full max-w-xl">
+    <div className="relative mx-auto w-full max-w-xl">
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setTimeout(() => setFocused(false), 150)}
-        placeholder="Search a procedure — e.g. Knee Replacement, Kidney Transplant..."
-        className="w-full rounded-full border border-ink-300 bg-white px-6 py-4 text-base shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+        placeholder={t("home.searchPlaceholder")}
+        className="w-full rounded-full border border-ink-300 bg-surface px-6 py-4 text-base text-ink-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
       />
       {focused && query.trim() && (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-lg">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-ink-100 bg-surface text-left shadow-lg">
           {matches.length === 0 && (
-            <div className="px-5 py-4 text-sm text-ink-500">
-              No priced procedures match &quot;{query}&quot; yet.
-            </div>
+            <div className="px-5 py-4 text-sm text-ink-500">{t("home.searchNoMatch", { q: query })}</div>
           )}
           {matches.map((p) => (
             <Link

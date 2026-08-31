@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { CghsRate } from "@/lib/types";
 import { formatINR } from "@/lib/format";
+import { useTranslation } from "@/lib/i18n/LanguageProvider";
 
 const PAGE_SIZE = 50;
 
@@ -13,6 +14,7 @@ export default function RateExplorer({
   rates: CghsRate[];
   specialties: string[];
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [visible, setVisible] = useState(PAGE_SIZE);
@@ -39,8 +41,8 @@ export default function RateExplorer({
             setQuery(e.target.value);
             setVisible(PAGE_SIZE);
           }}
-          placeholder="Search by procedure name or CGHS code..."
-          className="flex-1 rounded-full border border-ink-300 px-4 py-2 text-sm outline-none focus:border-brand-500"
+          placeholder={t("rates.searchPlaceholder")}
+          className="flex-1 rounded-full border border-ink-300 bg-surface px-4 py-2 text-sm text-ink-900 outline-none focus:border-brand-500"
         />
         <select
           value={specialty}
@@ -48,9 +50,9 @@ export default function RateExplorer({
             setSpecialty(e.target.value);
             setVisible(PAGE_SIZE);
           }}
-          className="rounded-full border border-ink-300 px-4 py-2 text-sm outline-none focus:border-brand-500"
+          className="rounded-full border border-ink-300 bg-surface px-4 py-2 text-sm text-ink-900 outline-none focus:border-brand-500"
         >
-          <option value="">All specialties</option>
+          <option value="">{t("rates.allSpecialties")}</option>
           {specialties.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -60,25 +62,24 @@ export default function RateExplorer({
       </div>
 
       {!query && !specialty && (
-        <p className="mt-8 text-sm text-ink-500">
-          Search for a procedure or pick a specialty to see rates — {rates.length.toLocaleString("en-IN")}{" "}
-          rows isn&apos;t something you want to scroll through blind.
-        </p>
+        <p className="mt-8 text-sm text-ink-500">{t("rates.promptSearch", { n: rates.length.toLocaleString("en-IN") })}</p>
       )}
 
       {(query || specialty) && (
         <>
-          <p className="mt-4 text-xs text-ink-500">{filtered.length.toLocaleString("en-IN")} matching rows</p>
+          <p className="mt-4 text-xs text-ink-500">
+            {t("rates.matchingRows", { n: filtered.length.toLocaleString("en-IN") })}
+          </p>
           <div className="mt-2 overflow-x-auto rounded-xl border border-ink-100">
             <table className="w-full text-left text-sm">
               <thead className="bg-ink-50 text-xs uppercase tracking-wide text-ink-500">
                 <tr>
-                  <th className="px-4 py-3">Code</th>
-                  <th className="px-4 py-3">Procedure</th>
-                  <th className="px-4 py-3">NABH</th>
-                  <th className="px-4 py-3">General</th>
-                  <th className="px-4 py-3">Semi-private</th>
-                  <th className="px-4 py-3">Private</th>
+                  <th className="px-4 py-3">{t("rates.colCode")}</th>
+                  <th className="px-4 py-3">{t("rates.colProcedure")}</th>
+                  <th className="px-4 py-3">{t("rates.colNabh")}</th>
+                  <th className="px-4 py-3">{t("rates.colGeneral")}</th>
+                  <th className="px-4 py-3">{t("rates.colSemiPrivate")}</th>
+                  <th className="px-4 py-3">{t("rates.colPrivate")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
@@ -94,7 +95,7 @@ export default function RateExplorer({
                             : "rounded bg-ink-100 px-2 py-0.5 text-xs font-medium text-ink-700"
                         }
                       >
-                        {r.nabh ? "NABH" : "Non-NABH"}
+                        {r.nabh ? t("rates.colNabh") : `Non-${t("rates.colNabh")}`}
                       </span>
                     </td>
                     <td className="px-4 py-3">{formatINR(Number(r.generalWard))}</td>
@@ -108,9 +109,9 @@ export default function RateExplorer({
           {visible < filtered.length && (
             <button
               onClick={() => setVisible((v) => v + PAGE_SIZE)}
-              className="mt-4 rounded-full border border-ink-300 px-4 py-2 text-sm font-medium hover:bg-ink-50"
+              className="mt-4 rounded-full border border-ink-300 px-4 py-2 text-sm font-medium text-ink-900 hover:bg-ink-50"
             >
-              Load {Math.min(PAGE_SIZE, filtered.length - visible)} more
+              {t("rates.loadMore", { n: Math.min(PAGE_SIZE, filtered.length - visible) })}
             </button>
           )}
         </>
