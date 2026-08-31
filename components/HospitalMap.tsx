@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Map as MapLibreMap, NavigationControl, Popup } from "maplibre-gl";
 import type { GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -30,6 +30,7 @@ export default function HospitalMap({ hospitals }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const loadedRef = useRef(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -39,14 +40,35 @@ export default function HospitalMap({ hospitals }: Props) {
       ? [first.lon as number, first.lat as number]
       : [77.5946, 12.9716];
 
-    const map = new MapLibreMap({
-      container: containerRef.current,
-      style: "https://tiles.openfreemap.org/styles/positron",
-      center,
-      zoom: 10,
-    });
+    const container = containerRef.current;
+    let map: MapLibreMap;
+    try {
+      map = new MapLibreMap({
+        container,
+        style: "https://tiles.openfreemap.org/styles/positron",
+        center,
+        zoom: 10,
+      });
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not start the map (WebGL unsupported?).");
+      return;
+    }
     mapRef.current = map;
     map.addControl(new NavigationControl(), "top-right");
+
+    map.on("error", (e) => {
+      setLoadError(e.error?.message ?? "The map failed to load.");
+    });
+
+    // MapLibre sizes its canvas from the container's dimensions at
+    // construction time. This component is loaded via next/dynamic with
+    // ssr:false, and can mount before its flex/grid parent has finished
+    // laying out, so the container is sometimes 0x0 when the map is
+    // constructed — the map "loads" but paints into an invisible canvas,
+    // which looks like a blank white box. A ResizeObserver catches the
+    // real size once layout settles and tells MapLibre to resize into it.
+    const resizeObserver = new ResizeObserver(() => map.resize());
+    resizeObserver.observe(container);
 
     map.on("load", () => {
       map.addSource("hospitals", {
@@ -132,6 +154,7 @@ export default function HospitalMap({ hospitals }: Props) {
     });
 
     return () => {
+      resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
       loadedRef.current = false;
@@ -146,5 +169,14 @@ export default function HospitalMap({ hospitals }: Props) {
     source?.setData(toGeoJSON(hospitals));
   }, [hospitals]);
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" />
+      {loadError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-surface p-4 text-center text-sm text-ink-500">
+          Map couldn&apos;t load ({loadError}). The hospital list still works.
+        </div>
+      )}
+    </div>
+  );
 }

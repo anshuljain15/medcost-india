@@ -20,7 +20,8 @@ export default function HospitalListClient({ hospitals, citySlug }: Props) {
     return hospitals.filter(
       (h) =>
         h.name.toLowerCase().includes(q) ||
-        (h.address ?? "").toLowerCase().includes(q)
+        (h.address ?? "").toLowerCase().includes(q) ||
+        (h.pincode ?? "").includes(q)
     );
   }, [hospitals, query]);
 
@@ -54,6 +55,7 @@ export default function HospitalListClient({ hospitals, citySlug }: Props) {
                   </span>
                 )}
                 {h.bedCount && <span className="text-ink-500">{h.bedCount} beds</span>}
+                {h.pincode && <span className="text-ink-500">PIN {h.pincode}</span>}
               </div>
             </Link>
           </li>

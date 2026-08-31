@@ -136,7 +136,7 @@ export const translations = {
     city: {
       titleSuffix: "network hospitals",
       subtitle: "{n} hospitals in the Bajaj Allianz cashless network.",
-      searchPlaceholder: "Search by hospital name or area...",
+      searchPlaceholder: "Search by hospital name, area, or PIN code...",
       shownCount: "{shown} of {total} shown",
       noMatch: "No hospitals match.",
     },
@@ -304,7 +304,7 @@ export const translations = {
     city: {
       titleSuffix: "नेटवर्क अस्पताल",
       subtitle: "Bajaj Allianz कैशलेस नेटवर्क में {n} अस्पताल।",
-      searchPlaceholder: "अस्पताल के नाम या क्षेत्र से खोजें...",
+      searchPlaceholder: "अस्पताल के नाम, क्षेत्र, या पिन कोड से खोजें...",
       shownCount: "{total} में से {shown} दिखाए गए",
       noMatch: "कोई अस्पताल मेल नहीं खाता।",
     },
