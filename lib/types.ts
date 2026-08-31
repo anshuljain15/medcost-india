@@ -1,3 +1,32 @@
+export type CghsRate = {
+  code: string;
+  name: string;
+  specialty: string;
+  nabh: boolean;
+  generalWard: string | null;
+  semiPrivateWard: string | null;
+  privateWard: string | null;
+};
+
+export type ProcedureHospitalPrice = {
+  hospitalName: string;
+  hospitalSlug: string | null;
+  min: number | null;
+  max: number | null;
+  avg: number | null;
+};
+
+export type Procedure = {
+  slug: string;
+  name: string;
+  cityLow: number | null;
+  cityHigh: number | null;
+  hospitalPrices: ProcedureHospitalPrice[];
+  cghsReference: CghsRate | null;
+  source: string;
+  sourceUrl: string;
+};
+
 export type Hospital = {
   id: string;
   slug: string;

@@ -21,14 +21,12 @@ export default async function CityPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-        {cityLabel} network hospitals
-      </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <h1 className="text-2xl font-bold text-ink-900">{cityLabel} network hospitals</h1>
+      <p className="mt-1 text-sm text-ink-500">
         {hospitals.length} hospitals in the Bajaj Allianz cashless network.
       </p>
       <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <div className="h-[520px] overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="h-[520px] overflow-hidden rounded-xl border border-ink-100">
           <HospitalMap hospitals={hospitals} />
         </div>
         <HospitalListClient hospitals={hospitals} citySlug={city} />

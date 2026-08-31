@@ -6,10 +6,8 @@ export default function HospitalsIndexPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
-      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-        Browse hospitals by city
-      </h1>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+      <h1 className="text-2xl font-bold text-ink-900">Browse hospitals by city</h1>
+      <p className="mt-2 text-ink-700">
         2,684 hospitals from the Bajaj Allianz cashless network directory, across six metros.
       </p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
@@ -19,10 +17,10 @@ export default function HospitalsIndexPage() {
             <Link
               key={city}
               href={`/hospitals/${city.toLowerCase()}`}
-              className="rounded-lg border border-zinc-200 bg-white p-5 transition hover:border-blue-400 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+              className="rounded-xl border border-ink-100 bg-white p-5 transition hover:border-brand-400 hover:shadow-sm"
             >
-              <div className="text-lg font-medium text-zinc-900 dark:text-zinc-50">{city}</div>
-              <div className="text-sm text-zinc-500">{count} hospitals</div>
+              <div className="text-lg font-semibold text-ink-900">{city}</div>
+              <div className="text-sm text-ink-500">{count} hospitals</div>
             </Link>
           );
         })}

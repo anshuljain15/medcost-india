@@ -1,7 +1,24 @@
 import hospitalsJson from "@/data/generated/hospitals.json";
-import type { Hospital } from "./types";
+import proceduresJson from "@/data/generated/procedures.json";
+import type { Hospital, Procedure } from "./types";
 
 const hospitals = hospitalsJson as Hospital[];
+const procedures = proceduresJson as Procedure[];
+
+export function getAllProcedures(): Procedure[] {
+  return procedures;
+}
+
+export function getProcedureBySlug(slug: string): Procedure | undefined {
+  return procedures.find((p) => p.slug === slug);
+}
+
+export function getProceduresAtHospital(hospitalSlug: string): Procedure[] {
+  return procedures.filter((p) =>
+    p.hospitalPrices.some((hp) => hp.hospitalSlug === hospitalSlug)
+  );
+}
+
 
 export function getCities(): string[] {
   return Array.from(new Set(hospitals.map((h) => h.city))).sort();

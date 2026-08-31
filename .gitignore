@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# data pipeline intermediate outputs — regenerable by rerunning the
+# scripts in data-pipeline/sources/; only data/generated/*.json (what the
+# app actually reads) is committed
+/data-pipeline/output/

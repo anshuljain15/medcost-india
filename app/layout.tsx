@@ -1,23 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: "MedCost India — hospital directory & price transparency",
   description:
-    "A directory of Indian network hospitals with a transparent, source-cited procedure-pricing layer, starting with Bangalore.",
+    "Compare hospital procedure prices and network hospitals across India, with a source-cited government reference rate on every page.",
 };
+
+const NAV_LINKS = [
+  { href: "/procedures", label: "Procedures" },
+  { href: "/hospitals", label: "Hospitals" },
+  { href: "/rates", label: "Rate Explorer" },
+  { href: "/methodology", label: "Methodology" },
+];
 
 export default function RootLayout({
   children,
@@ -26,28 +28,65 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col bg-zinc-50 font-sans antialiased dark:bg-zinc-950`}
-      >
-        <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+      <body className={`${inter.variable} flex min-h-screen flex-col bg-white font-sans text-ink-900 antialiased`}>
+        <header className="sticky top-0 z-30 border-b border-ink-100 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-            <Link href="/" className="font-semibold text-zinc-900 dark:text-zinc-50">
+            <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink-900">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-brand-500" />
               MedCost India
             </Link>
-            <nav className="flex gap-6 text-sm text-zinc-600 dark:text-zinc-400">
-              <Link href="/hospitals" className="hover:text-blue-600">
-                Hospitals
-              </Link>
-              <Link href="/methodology" className="hover:text-blue-600">
-                Methodology
-              </Link>
+            <nav className="hidden gap-8 text-sm font-medium text-ink-700 sm:flex">
+              {NAV_LINKS.map((link) => (
+                <Link key={link.href} href={link.href} className="hover:text-brand-700">
+                  {link.label}
+                </Link>
+              ))}
             </nav>
+            <Link
+              href="/procedures"
+              className="rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              Find a price
+            </Link>
           </div>
         </header>
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-zinc-200 py-6 text-center text-xs text-zinc-500 dark:border-zinc-800">
-          Hospital directory data adapted from Bajaj Allianz&apos;s public network-hospital locator.
-          Map data © OpenStreetMap contributors.
+        <footer className="border-t border-ink-100 bg-ink-50">
+          <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-ink-500">
+            <div className="flex flex-col gap-6 sm:flex-row sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 font-bold text-ink-900">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-brand-500" />
+                  MedCost India
+                </div>
+                <p className="mt-2 max-w-xs">
+                  Every price on this site is a range with a visible source and date —
+                  never a single made-up number.
+                </p>
+              </div>
+              <div className="flex gap-12">
+                <div>
+                  <div className="font-semibold text-ink-900">Explore</div>
+                  <ul className="mt-2 space-y-1">
+                    <li><Link href="/procedures" className="hover:text-brand-700">Procedures</Link></li>
+                    <li><Link href="/hospitals" className="hover:text-brand-700">Hospitals</Link></li>
+                    <li><Link href="/rates" className="hover:text-brand-700">Rate Explorer</Link></li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="font-semibold text-ink-900">About</div>
+                  <ul className="mt-2 space-y-1">
+                    <li><Link href="/methodology" className="hover:text-brand-700">Methodology</Link></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <p className="mt-8 border-t border-ink-100 pt-6 text-xs">
+              Hospital directory adapted from Bajaj Allianz&apos;s public network-hospital
+              locator. Procedure prices from HexaHealth (market estimates) and CGHS
+              (government reference rates). Map data © OpenStreetMap contributors.
+            </p>
+          </div>
         </footer>
       </body>
     </html>

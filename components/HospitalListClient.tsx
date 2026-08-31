@@ -23,41 +23,41 @@ export default function HospitalListClient({ hospitals, citySlug }: Props) {
   }, [hospitals, query]);
 
   return (
-    <div className="flex h-[520px] flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 p-3 dark:border-zinc-800">
+    <div className="flex h-[520px] flex-col rounded-xl border border-ink-100 bg-white">
+      <div className="border-b border-ink-100 p-3">
         <input
           type="text"
           placeholder="Search by hospital name or area..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-800"
+          className="w-full rounded-md border border-ink-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
         />
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-ink-500">
           {filtered.length} of {hospitals.length} shown
         </p>
       </div>
-      <ul className="flex-1 divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-800">
+      <ul className="flex-1 divide-y divide-ink-100 overflow-y-auto">
         {filtered.map((h) => (
           <li key={h.id}>
             <Link
               href={`/hospitals/${citySlug}/${h.slug}`}
-              className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              className="block px-4 py-3 hover:bg-brand-50"
             >
-              <div className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{h.name}</div>
-              <div className="text-xs text-zinc-500">{h.address}</div>
+              <div className="text-sm font-medium text-ink-900">{h.name}</div>
+              <div className="text-xs text-ink-500">{h.address}</div>
               <div className="mt-1 flex gap-2 text-xs">
                 {h.networkType && (
-                  <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                  <span className="rounded bg-brand-50 px-1.5 py-0.5 text-brand-700">
                     {h.networkType}
                   </span>
                 )}
-                {h.bedCount && <span className="text-zinc-400">{h.bedCount} beds</span>}
+                {h.bedCount && <span className="text-ink-500">{h.bedCount} beds</span>}
               </div>
             </Link>
           </li>
         ))}
         {filtered.length === 0 && (
-          <li className="px-4 py-6 text-center text-sm text-zinc-500">No hospitals match.</li>
+          <li className="px-4 py-6 text-center text-sm text-ink-500">No hospitals match.</li>
         )}
       </ul>
     </div>
