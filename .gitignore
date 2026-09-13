@@ -44,3 +44,7 @@ next-env.d.ts
 # scripts in data-pipeline/sources/; only data/generated/*.json (what the
 # app actually reads) is committed
 /data-pipeline/output/
+
+# python bytecode (build_reviews.py imports build_procedures.py)
+__pycache__/
+*.pyc

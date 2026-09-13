@@ -47,3 +47,27 @@ export type Hospital = {
   totalNurses: string | null;
   nabhFlag: string | null;
 };
+
+export type HospitalReview = {
+  author: string;
+  rating: number | null;
+  text: string;
+  publishedAt: string | null;
+  profileUrl: string | null;
+  avatarUrl: string | null;
+  reviewUrl: string | null;
+};
+
+export type HospitalReviews = {
+  hospitalSlug: string;
+  rating: number | null;
+  reviewCount: number | null;
+  placeId: string | null;
+  googleMapsUrl: string | null;
+  photos: string[];
+  topReviews: HospitalReview[];
+  /** Written by data-pipeline/build_review_summaries.py; null until that runs. */
+  summary: string | null;
+  summaryModel: string | null;
+  fetchedAt: string | null;
+};

@@ -1,18 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import type { Hospital, Procedure } from "@/lib/types";
+import type { Hospital, HospitalReviews, Procedure } from "@/lib/types";
 import { formatINR } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
+import HospitalReviewsSection from "@/components/HospitalReviews";
 
 export default function HospitalDetailView({
   hospital,
   citySlug,
   procedures,
+  reviews,
 }: {
   hospital: Hospital;
   citySlug: string;
   procedures: Procedure[];
+  reviews: HospitalReviews | null;
 }) {
   const { t } = useTranslation();
 
@@ -75,6 +78,8 @@ export default function HospitalDetailView({
           {t("hospital.noProceduresPost")}
         </div>
       )}
+
+      {reviews && <HospitalReviewsSection reviews={reviews} />}
     </div>
   );
 }

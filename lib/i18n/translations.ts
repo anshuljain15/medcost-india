@@ -154,6 +154,18 @@ export const translations = {
       allProcedures: "all priced procedures",
       noProceduresPost: "for Bangalore market ranges.",
     },
+    reviews: {
+      heading: "Patient reviews",
+      countLabel: "{n} reviews on Google",
+      viewOnGoogle: "View on Google Maps",
+      viewReview: "View this review on Google Maps",
+      summaryLabel: "AI summary of these reviews",
+      summaryDisclaimer:
+        "Written by an AI model from the reviews below, which are patients' own words. It can be wrong — read the reviews.",
+      source: "Source: Google reviews. Authors retain their own words.",
+      sourceDated:
+        "Source: Google reviews, fetched {date}. Authors retain their own words.",
+    },
     methodology: {
       title: "Methodology & sources",
       intro:
@@ -321,6 +333,18 @@ export const translations = {
       noProceduresPre: "अभी इस विशेष अस्पताल से जुड़ी कोई प्रक्रिया मूल्य निर्धारण नहीं है — ब्राउज़ करें",
       allProcedures: "सभी मूल्य वाली प्रक्रियाएं",
       noProceduresPost: "बैंगलोर बाजार सीमाओं के लिए।",
+    },
+    reviews: {
+      heading: "मरीज़ों की समीक्षाएं",
+      countLabel: "Google पर {n} समीक्षाएं",
+      viewOnGoogle: "Google Maps पर देखें",
+      viewReview: "यह समीक्षा Google Maps पर देखें",
+      summaryLabel: "इन समीक्षाओं का AI सारांश",
+      summaryDisclaimer:
+        "नीचे दी गई समीक्षाओं से एक AI मॉडल द्वारा लिखा गया, जो मरीज़ों के अपने शब्द हैं। यह ग़लत हो सकता है — समीक्षाएं पढ़ें।",
+      source: "स्रोत: Google समीक्षाएं। शब्द उनके लेखकों के हैं।",
+      sourceDated:
+        "स्रोत: Google समीक्षाएं, {date} को ली गईं। शब्द उनके लेखकों के हैं।",
     },
     methodology: {
       title: "पद्धति और स्रोत",
