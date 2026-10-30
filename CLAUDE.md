@@ -6,7 +6,10 @@ Guidance for Claude Code working in this repo.
 
 **MedCost India** — a directory of Indian network hospitals with a source-cited
 procedure-pricing layer on top. 2,684 hospitals across 6 cities; pricing is a
-Bangalore-only pilot (~200 procedures).
+Bangalore-only pilot (~200 procedures). A national medicine-price layer
+(`/medicines`, ~1,400 tablet/capsule compositions) compares brands with the
+Jan Aushadhi generic and the NPPA ceiling, and `/kendras` finds Jan Aushadhi
+stores by PIN.
 
 The product promise, which constrains most technical decisions: **every price is a
 range with a visible source and date, never a single made-up number.** A wrong
@@ -31,14 +34,19 @@ touching page code:
   sources/google_      ->    build_reviews.py     ->     hospitals.json      ->  app/** (RSC +
     reviews.py               build_review_            + reviews.json              client pages)
                              summaries.py               meta.json
+  sources/janaushadhi.py ->  build_medicines.py   ->   medicines.json      ->  lib/medicines.ts (server)
+  sources/nppa.py              (+ medicine_parse.py)    kendras.json
+  sources/open_medicines.py                           public/data/**      ->  lib/medicineShards.ts
+  sources/cdci.py                                       (fetched shards)        (browser fetch)
 ```
 
 - **The Python pipeline never runs in CI.** Its outputs are committed. CI has no
   access to the sibling `scrap/` repo or to `data-pipeline/output/` (gitignored).
-- **`lib/data.ts`, `lib/cghs.ts` and `lib/reviews.ts` are the only data-access
-  seam.** Everything above them reads typed functions, not JSON. When a Postgres
-  source lands (planned), it replaces those three modules and nothing else. Do
-  not import `data/generated/*.json` from a component or a page.
+- **`lib/data.ts`, `lib/cghs.ts`, `lib/reviews.ts`, `lib/medicines.ts` and
+  `lib/medicineShards.ts` are the only data-access seam.** Everything above them
+  reads typed functions, not JSON. When a Postgres source lands (planned), it
+  replaces those modules and nothing else. Do not import `data/generated/*.json`
+  from a component or a page.
 - **`lib/types.ts` is the contract** between the Python builders and the app.
   Changing a field name means changing both sides plus the committed JSON.
 
@@ -141,6 +149,54 @@ photos **hotlinked and never re-hosted**, and a visible fetch date.
 Summaries come from `build_review_summaries.py` (Claude via the Message Batches
 API). They must always render with the AI-generated label and disclaimer.
 
+## Medicine prices and Jan Aushadhi stores (national)
+
+Modelled on fairmeds.in, but **not built from it**: its terms forbid scraping,
+so we use the primary sources it cites. All four inputs are manual downloads
+into `medcost_fairprice/` (gitignored; each loader's docstring says where from).
+
+| Loader | Source | Gives | Licence / caveat |
+|---|---|---|---|
+| `sources/janaushadhi.py` | PMBJP product CSV + state-wise Kendra PDFs | generic MRPs, ~19.7k stores | Gov't. Operator's personal name is dropped on purpose |
+| `sources/nppa.py` | NPPA "All Drugs Ceiling Prices.xlsx" | per-unit legal ceiling | Excludes GST, so the UI says so |
+| `sources/open_medicines.py` | Kaggle A-Z Medicine Dataset of India | brand MRPs | **CC BY-SA 4.0, Nov 2022 snapshot**. Our medicine data inherits CC BY-SA |
+| `sources/cdci.py` | NRCeS CDCI flat files | salt vocabulary only | CC BY 4.0; not republished |
+
+**Matching is exact composition equality**: `(form, release, ((salt, strength), …))`.
+Every decision is in the `medicine_parse.py` docstring and pinned by its
+self-checks (`python data-pipeline/medicine_parse.py`). The ones that bite:
+
+- **The Kaggle dataset keeps at most two salts.** A 3-salt brand is cut to
+  two (Zerodol-SP reads exactly like Zerodol-P). A trailing space on
+  `short_composition2` is the tell; those rows are `truncated` and never grouped.
+  Don't "fix" the whitespace handling.
+- Release is part of the key (SR ≠ IR). Gastro-resistant/enteric is collapsed to
+  standard, because the brand source never says it for PPIs. "OD" is ambiguous and unparsed.
+  For brands, release must agree between the pack label and the whole name.
+- Salt forms collapse to the active moiety except in `NEVER_STRIP`
+  (metoprolol succinate/tartrate, …). Spelling variants go in `SALT_ALIASES`;
+  real substances missing from CDCI go in `EXTRA_VOCAB`. **Every salt must pass
+  the vocabulary gate.** Add aliases rather than loosening it.
+- Tablets and capsules only. v1 groups are those with a Jan Aushadhi product or
+  an NPPA ceiling; brands outside them are not searchable (coverage, not error).
+
+Baseline counts (Oct 2026 inputs): Jan Aushadhi 1265/1418 tablet/capsule
+products parsed, 357 NPPA ceilings, 1,403 groups, 107k brand listings. A jump
+in these after a parser change means the parser got looser.
+
+**Two read paths, by design.** Group pages are pre-rendered from
+`medicines.json` via `lib/medicines.ts` (server only). The search box and the
+Kendra finder **fetch** shards from `public/data/medicines/search/q-<abc>.json`
+(3-letter prefix; a per-shard slug table) and `public/data/kendras/<pin3>.json`
+through `lib/medicineShards.ts`, which adds the static `basePath`. Never import
+the medicine or Kendra JSON into a client component. That would put about
+10 MB in the bundle.
+
+Prescription photos are read **in the browser** by `tesseract.js`
+(`components/PrescriptionScan.tsx`, lazy `import()`). The image is never
+uploaded, so no API route is needed on either target. OCR words are only
+offered as chips that hit the index, never auto-searched.
+
 ## Frontend conventions
 
 - **Next.js 16 App Router, React 19, Tailwind v4, TypeScript strict.** Path alias
@@ -194,6 +250,10 @@ python data-pipeline/sources/google_reviews.py --limit 10  # smoke test FIRST (c
 python data-pipeline/sources/google_reviews.py             # needs OUTSCRAPER_API_KEY
 python data-pipeline/build_reviews.py                      # strict name+location match
 python data-pipeline/build_review_summaries.py             # needs ANTHROPIC_API_KEY
+
+python data-pipeline/sources/janaushadhi.py   # + nppa.py, open_medicines.py, cdci.py
+python data-pipeline/medicine_parse.py        # parser self-checks — run after any parser edit
+python data-pipeline/build_medicines.py       # -> medicines.json, kendras.json, public/data/**
 ```
 
 There is no test suite. `npm run lint` and a static-export build are the
@@ -224,7 +284,12 @@ looser, not better.
   calls `getReviewsForHospital()` and passes one record down as a prop. Importing
   `lib/reviews.ts` from a `"use client"` component ships every hospital's reviews
   to every visitor — the same trap as `hospitals.json` above. Verified by seeding
-  one record and grepping `.next/static/` for it; keep that invariant.
+  one record and grepping `.next/static/` for it; keep that invariant. The same
+  holds for `lib/medicines.ts`. Check with a brand name (e.g. `Pantoflam CT`)
+  or Kendra code (`PMBJK00258`) against `out/_next/static`.
+- **Re-running `build_medicines.py` also rewrites `public/data/`** (it deletes and
+  regenerates the shard folders). Commit `public/data/` together with
+  `data/generated/medicines.json`, or search and the group pages will disagree.
 - `.env` holds a GitHub token and is gitignored. Never read it into app code,
   echo it, or commit it.
 - The two `eslint-disable react-hooks/set-state-in-effect` lines in the providers

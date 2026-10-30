@@ -24,6 +24,8 @@ export default function SiteFooter() {
                 <li><Link href="/procedures" className="hover:text-brand-700">{t("nav.procedures")}</Link></li>
                 <li><Link href="/hospitals" className="hover:text-brand-700">{t("nav.hospitals")}</Link></li>
                 <li><Link href="/rates" className="hover:text-brand-700">{t("nav.rates")}</Link></li>
+                <li><Link href="/medicines" className="hover:text-brand-700">{t("nav.medicines")}</Link></li>
+                <li><Link href="/kendras" className="hover:text-brand-700">{t("nav.kendras")}</Link></li>
               </ul>
             </div>
             <div>

@@ -21,6 +21,11 @@ export default function MethodologyPage() {
       <p className="mt-2">{t("methodology.marketBody1")}</p>
       <p className="mt-2">{t("methodology.marketBody2")}</p>
 
+      <h2 className="mt-8 text-lg font-semibold text-ink-900">{t("methodology.medHeading")}</h2>
+      <p className="mt-2">{t("methodology.medBody1")}</p>
+      <p className="mt-2">{t("methodology.medBody2")}</p>
+      <p className="mt-2">{t("methodology.medBody3")}</p>
+
       <h2 className="mt-8 text-lg font-semibold text-ink-900">{t("methodology.nextHeading")}</h2>
       <p className="mt-2">{t("methodology.nextBody")}</p>
 

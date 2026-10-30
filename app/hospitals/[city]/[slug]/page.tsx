@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAllSlugs, getHospitalBySlug, getProceduresAtHospital } from "@/lib/data";
 import { getReviewsForHospital } from "@/lib/reviews";
+import { getKendrasNearPincode } from "@/lib/medicines";
 import HospitalDetailView from "@/components/HospitalDetailView";
 
 export function generateStaticParams() {
@@ -23,6 +24,8 @@ export default async function HospitalDetailPage({
   // lib/reviews.ts from the client view would ship every hospital's reviews
   // to every visitor.
   const reviews = city === "bangalore" ? getReviewsForHospital(slug) : null;
+  // Same rule as reviews: only this hospital's handful of stores reaches the client.
+  const kendras = getKendrasNearPincode(hospital.pincode);
 
   return (
     <HospitalDetailView
@@ -30,6 +33,7 @@ export default async function HospitalDetailPage({
       citySlug={city}
       procedures={procedures}
       reviews={reviews}
+      kendras={kendras}
     />
   );
 }

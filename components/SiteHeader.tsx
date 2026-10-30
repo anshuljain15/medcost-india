@@ -13,6 +13,7 @@ export default function SiteHeader() {
   const navLinks = [
     { href: "/procedures", label: t("nav.procedures") },
     { href: "/hospitals", label: t("nav.hospitals") },
+    { href: "/medicines", label: t("nav.medicines") },
     { href: "/rates", label: t("nav.rates") },
     { href: "/methodology", label: t("nav.methodology") },
   ];

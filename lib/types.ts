@@ -71,3 +71,78 @@ export type HospitalReviews = {
   summaryModel: string | null;
   fetchedAt: string | null;
 };
+
+// ---- Medicines (data-pipeline/build_medicines.py -> data/generated/medicines.json)
+// A group is every product with the SAME salts, strengths, form and release
+// type -- see the decisions in data-pipeline/medicine_parse.py. Prices are per
+// tablet/capsule so pack sizes compare; every one carries its source's date.
+
+export type MedicineForm = "tablet" | "capsule";
+export type MedicineRelease =
+  | "standard"
+  | "modified"
+  | "dispersible"
+  | "mouth-dissolving"
+  | "chewable"
+  | "effervescent";
+
+export type JanAushadhiProduct = {
+  drugCode: string;
+  name: string;
+  unitSize: string;
+  /** null when PMBJP lists the product with MRP 0 (no price published). */
+  mrp: number | null;
+  perUnit: number | null;
+};
+
+export type NppaCeiling = {
+  formulation: string;
+  dosage: string;
+  /** Per tablet/capsule, EXCLUDING GST. */
+  ceilingPrice: number;
+  soNumber: string;
+  soDate: string;
+  nlemVersion: number | null;
+};
+
+export type MedicineBrand = {
+  name: string;
+  manufacturer: string | null;
+  packLabel: string;
+  price: number | null;
+  perUnit: number | null;
+};
+
+export type MedicineGroupLink = { slug: string; title: string };
+
+export type MedicineGroup = {
+  slug: string;
+  title: string;
+  salts: { name: string; strength: string }[];
+  form: MedicineForm;
+  release: MedicineRelease;
+  janAushadhi: JanAushadhiProduct[];
+  nppaCeiling: NppaCeiling | null;
+  /** Cheapest brands only (capped); brandCount is the full number. */
+  brands: MedicineBrand[];
+  brandCount: number;
+  brandPerUnit: { min: number; median: number; max: number } | null;
+  relatedStrengths: MedicineGroupLink[];
+  relatedExtraSalt: MedicineGroupLink[];
+};
+
+export type MedicinesMeta = {
+  janAushadhi: { snapshotDate: string; url: string };
+  nppa: { exportDate: string | null; url: string };
+  brands: { name: string; url: string; license: string; snapshotDate: string };
+  kendras: { snapshotDate: string | null; count: number };
+};
+
+/** One PMBJP store. The operator's personal name is deliberately not stored. */
+export type JanAushadhiKendra = {
+  code: string;
+  address: string | null;
+  district: string | null;
+  state: string;
+  pincode: string | null;
+};

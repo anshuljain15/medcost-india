@@ -1,0 +1,15 @@
+Medicine price data on MedCost India (public/data/medicines/, data/generated/medicines.json)
+
+Licensed CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), because it
+is derived from:
+  - "A-Z Medicine Dataset of India" (Kaggle, shudhanshusingh), CC BY-SA 4.0,
+    November 2022 snapshot -- brand names, manufacturers, pack sizes and listed MRPs.
+Also includes:
+  - Jan Aushadhi product list and Kendra list, Pradhan Mantri Bhartiya
+    Janaushadhi Pariyojana (PMBI), janaushadhi.gov.in
+  - Ceiling prices notified by the National Pharmaceutical Pricing Authority,
+    nppaindia.nic.in
+Salt names were checked against NRCeS Common Drug Codes for India (C-DAC Pune,
+CC BY 4.0); that data is not republished here.
+
+Prices are for information only and may be out of date. Not medical advice.

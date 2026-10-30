@@ -1,21 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import type { Hospital, HospitalReviews, Procedure } from "@/lib/types";
+import type { Hospital, HospitalReviews, JanAushadhiKendra, Procedure } from "@/lib/types";
 import { formatINR } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 import HospitalReviewsSection from "@/components/HospitalReviews";
+import { KendraRow } from "@/components/KendraFinder";
+
+type NearbyKendraSlice = { samePin: JanAushadhiKendra[]; samePostalArea: JanAushadhiKendra[] };
 
 export default function HospitalDetailView({
   hospital,
   citySlug,
   procedures,
   reviews,
+  kendras,
 }: {
   hospital: Hospital;
   citySlug: string;
   procedures: Procedure[];
   reviews: HospitalReviews | null;
+  kendras: NearbyKendraSlice;
 }) {
   const { t } = useTranslation();
 
@@ -80,7 +85,62 @@ export default function HospitalDetailView({
       )}
 
       {reviews && <HospitalReviewsSection reviews={reviews} />}
+
+      <NearbyKendras pincode={hospital.pincode} kendras={kendras} />
     </div>
+  );
+}
+
+function NearbyKendras({ pincode, kendras }: { pincode: string | null; kendras: NearbyKendraSlice }) {
+  const { t } = useTranslation();
+  const none = kendras.samePin.length === 0 && kendras.samePostalArea.length === 0;
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-lg font-bold text-ink-900">{t("hospital.kendrasHeading")}</h2>
+      {!pincode ? (
+        <p className="mt-2 text-sm text-ink-500">{t("hospital.kendrasNoPin")}</p>
+      ) : none ? (
+        <p className="mt-2 text-sm text-ink-500">{t("hospital.kendrasNone")}</p>
+      ) : (
+        <>
+          {kendras.samePin.length > 0 && (
+            <>
+              <h3 className="mt-3 text-xs uppercase tracking-wide text-ink-500">
+                {t("hospital.kendrasSamePin", { pin: pincode })}
+              </h3>
+              <ul className="mt-2 divide-y divide-ink-100 rounded-xl border border-ink-100">
+                {kendras.samePin.map((k) => (
+                  <KendraRow key={k.code} kendra={k} samePin={false} samePinLabel="" />
+                ))}
+              </ul>
+            </>
+          )}
+          {kendras.samePostalArea.length > 0 && (
+            <>
+              <h3 className="mt-4 text-xs uppercase tracking-wide text-ink-500">
+                {t("hospital.kendrasSameArea", { area: pincode.slice(0, 3) })}
+              </h3>
+              <ul className="mt-2 divide-y divide-ink-100 rounded-xl border border-ink-100">
+                {kendras.samePostalArea.map((k) => (
+                  <KendraRow key={k.code} kendra={k} samePin={false} samePinLabel="" />
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      )}
+      <div className="mt-3 flex flex-wrap gap-4 text-sm">
+        {pincode && (
+          <Link href={`/kendras?pin=${pincode}`} className="font-medium text-brand-700 hover:underline">
+            {t("hospital.kendrasFindMore")} →
+          </Link>
+        )}
+        <Link href="/medicines" className="font-medium text-brand-700 hover:underline">
+          {t("hospital.kendrasMedicines")} →
+        </Link>
+      </div>
+    </section>
   );
 }
 

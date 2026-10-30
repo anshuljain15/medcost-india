@@ -48,3 +48,6 @@ next-env.d.ts
 # python bytecode (build_reviews.py imports build_procedures.py)
 __pycache__/
 *.pyc
+
+# Raw medicine source downloads (large, licensed separately; never commit)
+/medcost_fairprice/
