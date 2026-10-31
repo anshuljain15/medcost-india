@@ -2,12 +2,11 @@
 
 import { useRef, useState } from "react";
 import { searchMedicines } from "@/lib/medicineShards";
+import { readImageText } from "@/lib/ocr";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 
-// Reads a photo of a strip, bill or printed prescription IN THE BROWSER with
-// tesseract.js. The image is never uploaded, so this needs no server and works
-// the same on GitHub Pages and Vercel. Only the OCR engine and its English
-// model are downloaded (from the jsDelivr CDN, tesseract.js's default).
+// Reads a photo of a strip, bill or printed prescription in the browser
+// (lib/ocr.ts -- the image is never uploaded).
 //
 // OCR output is never searched automatically: we keep only words that hit the
 // search index and show them as chips for the person to pick. A misread word
@@ -43,16 +42,7 @@ export default function PrescriptionScan({ onPick }: { onPick: (q: string) => vo
   async function handleFile(file: File) {
     setState({ kind: "loading" });
     try {
-      const { createWorker } = await import("tesseract.js");
-      const worker = await createWorker("eng", 1, {
-        logger: (m: { status: string; progress: number }) => {
-          if (m.status === "recognizing text") setState({ kind: "reading", pct: Math.round(m.progress * 100) });
-        },
-      });
-      const {
-        data: { text },
-      } = await worker.recognize(file);
-      await worker.terminate();
+      const text = await readImageText(file, (pct) => setState({ kind: "reading", pct }));
 
       const words: string[] = [];
       for (const c of candidates(text)) {

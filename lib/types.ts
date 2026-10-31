@@ -131,6 +131,19 @@ export type MedicineGroup = {
   relatedExtraSalt: MedicineGroupLink[];
 };
 
+/**
+ * The reference prices the bill checker needs for one group, sliced from
+ * MedicineGroup on the server so the browser never gets medicines.json.
+ */
+export type MedicineRef = {
+  slug: string;
+  title: string;
+  form: MedicineForm;
+  /** Cheapest Jan Aushadhi per unit with a published price. */
+  jaPerUnit: number | null;
+  nppaCeiling: { price: number; soNumber: string; soDate: string } | null;
+};
+
 export type MedicinesMeta = {
   janAushadhi: { snapshotDate: string; url: string };
   nppa: { exportDate: string | null; url: string };

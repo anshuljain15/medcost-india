@@ -24,7 +24,27 @@ export default function Home() {
             {t("home.title")}
           </h1>
           <p className="mt-5 max-w-xl text-lg text-ink-700">{t("home.subtitle")}</p>
-          <div className="mt-8 flex w-full justify-center">
+          <div className="mt-10 grid w-full gap-4 text-left sm:grid-cols-2">
+            {[
+              { href: "/check-quote", title: t("home.actionQuoteTitle"), body: t("home.actionQuoteBody"), note: null },
+              { href: "/check-bill", title: t("home.actionBillTitle"), body: t("home.actionBillBody"), note: t("home.actionPrivate") },
+            ].map((a) => (
+              <Link
+                key={a.href}
+                href={a.href}
+                className="group rounded-2xl border border-brand-200 bg-surface p-6 shadow-sm transition hover:border-brand-500 hover:shadow-md"
+              >
+                <div className="flex items-center justify-between text-lg font-semibold text-ink-900">
+                  {a.title}
+                  <span className="text-brand-600 transition group-hover:translate-x-1">→</span>
+                </div>
+                <p className="mt-2 text-sm text-ink-700">{a.body}</p>
+                {a.note && <p className="mt-3 text-xs font-medium text-brand-700">{a.note}</p>}
+              </Link>
+            ))}
+          </div>
+          <p className="mt-10 text-sm font-medium text-ink-500">{t("home.orSearch")}</p>
+          <div className="mt-3 flex w-full justify-center">
             <ProcedureSearch procedures={procedures} />
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-ink-500">

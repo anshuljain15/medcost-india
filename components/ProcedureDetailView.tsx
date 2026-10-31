@@ -102,6 +102,13 @@ export default function ProcedureDetailView({ procedure }: { procedure: Procedur
           . {t("procedure.footerNote")}
         </p>
       </section>
+
+      <Link
+        href={`/check-quote#${procedure.slug}`}
+        className="mt-8 block rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 font-semibold text-brand-800 hover:border-brand-500"
+      >
+        {t("procedure.checkQuote")}
+      </Link>
     </div>
   );
 }

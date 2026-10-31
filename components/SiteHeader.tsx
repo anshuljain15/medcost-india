@@ -11,6 +11,7 @@ export default function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navLinks = [
+    { href: "/check-bill", label: t("nav.checkBill") },
     { href: "/procedures", label: t("nav.procedures") },
     { href: "/hospitals", label: t("nav.hospitals") },
     { href: "/medicines", label: t("nav.medicines") },

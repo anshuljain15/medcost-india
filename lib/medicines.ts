@@ -1,6 +1,6 @@
 import medicinesJson from "@/data/generated/medicines.json";
 import kendrasJson from "@/data/generated/kendras.json";
-import type { JanAushadhiKendra, MedicineGroup, MedicinesMeta } from "./types";
+import type { JanAushadhiKendra, MedicineGroup, MedicineRef, MedicinesMeta } from "./types";
 
 // SERVER components only, like lib/reviews.ts: medicines.json is ~6 MB and
 // kendras.json ~3 MB. Pages pass one group / one slice down as props; the
@@ -17,6 +17,22 @@ export function getAllMedicineGroups(): MedicineGroup[] {
 
 export function getMedicineGroup(slug: string): MedicineGroup | undefined {
   return groupsBySlug.get(slug);
+}
+
+/** Reference prices only (~1,400 small rows) for the bill checker's props. */
+export function getMedicineRefs(): MedicineRef[] {
+  return data.groups.map((g) => {
+    const ja = g.janAushadhi.map((p) => p.perUnit).filter((n): n is number => n !== null);
+    return {
+      slug: g.slug,
+      title: g.title,
+      form: g.form,
+      jaPerUnit: ja.length > 0 ? Math.min(...ja) : null,
+      nppaCeiling: g.nppaCeiling
+        ? { price: g.nppaCeiling.ceilingPrice, soNumber: g.nppaCeiling.soNumber, soDate: g.nppaCeiling.soDate }
+        : null,
+    };
+  });
 }
 
 export function getMedicinesMeta(): MedicinesMeta {

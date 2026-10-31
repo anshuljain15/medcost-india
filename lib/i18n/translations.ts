@@ -20,6 +20,7 @@ export const translations = {
       medicines: "Medicines",
       kendras: "Jan Aushadhi stores",
       findPrice: "Find a price",
+      checkBill: "Check a bill",
     },
     footer: {
       tagline:
@@ -29,10 +30,16 @@ export const translations = {
       credit: "Built by Anshul",
     },
     home: {
-      eyebrow: "Bangalore pricing pilot",
-      title: "Know what a procedure should cost, before you walk into a hospital.",
+      eyebrow: "Medical price transparency for India",
+      title: "Was your hospital bill fair?",
       subtitle:
-        "Search a procedure to see a government reference rate, a market range, and — where we have it — a hospital-by-hospital price comparison.",
+        "Check a hospital's quote before you agree to it, or check the medicines on a bill you've already paid, against government reference prices. Every number shows its source.",
+      actionQuoteTitle: "Check a hospital quote",
+      actionQuoteBody: "Compare an estimate with the market range, hospital-wise prices and the CGHS rate.",
+      actionBillTitle: "Check a medicine bill",
+      actionBillBody: "Photograph a bill. We flag lines above the NPPA ceiling and show the Jan Aushadhi price.",
+      actionPrivate: "Read on your device, never uploaded",
+      orSearch: "Or look up what a procedure costs in Bangalore",
       statProcedures: "{n} procedures priced",
       statHospitals: "2,684 network hospitals",
       statCities: "{n} cities",
@@ -111,6 +118,7 @@ export const translations = {
       colMax: "Max",
       footerNote:
         "These are editorial market estimates, not confirmed billed amounts — treat them as a starting point for comparison, not a quote.",
+      checkQuote: "Got a quote from a hospital? Check it against these numbers →",
     },
     rates: {
       eyebrow: "Rate Explorer",
@@ -260,6 +268,101 @@ export const translations = {
       sourceDated:
         "Source: Google reviews, fetched {date}. Authors retain their own words.",
     },
+    check: {
+      share: "Share result",
+      copied: "Copied to clipboard",
+      methodologyLink: "How the checks work",
+    },
+    quote: {
+      eyebrow: "Quote checker · Bangalore",
+      title: "Is your hospital's quote fair?",
+      subtitle:
+        "Pick the procedure and type the amount the hospital quoted. We place it against the Bangalore market range, the hospital-wise prices we have, and the CGHS government rate.",
+      procedureLabel: "Procedure",
+      procedurePlaceholder: "Choose a procedure…",
+      amountLabel: "Amount quoted",
+      wardLabel: "Room type",
+      ward: { general: "General ward", semiPrivate: "Semi-private", private: "Private" },
+      wardNoCghs: "No CGHS rate for this procedure, so room type doesn't change the result.",
+      verdict: {
+        below: "This quote is below the lowest market estimate we have for {proc}.",
+        lowerHalf: "This quote is in the lower half of the market range for {proc}.",
+        upperHalf: "This quote is in the upper half of the market range for {proc}.",
+        above: "This quote is above the highest market estimate we have for {proc}.",
+        unknown: "We don't have a market range for {proc} yet.",
+      },
+      rangeHeading: "Bangalore market range",
+      rangeSource: "Editorial market estimate, not a billed amount. Source:",
+      hospitalsHeading: "Hospitals we have prices for",
+      hospitalsBelow: "{below} of {n} hospitals list a typical price below this quote.",
+      hospitalsNone: "No hospital-wise prices for this procedure yet.",
+      seeHospitals: "See the hospital-wise prices →",
+      cghsHeading: "Government (CGHS) rate",
+      cghsMultiple: "Your quote is {x}× the CGHS rate of {rate}.",
+      cghsExplain:
+        "CGHS is what the government pays empanelled hospitals, so private quotes are usually higher. It is a floor to compare with, not a fair price.",
+      cghsNone: "No confident CGHS match for this procedure.",
+      askHeading: "Before you agree, ask the hospital",
+      askList: [
+        "Is this a package price? What exactly does it include: room, surgeon and anaesthetist fees, implants, medicines, consumables, tests?",
+        "How many days in hospital and in ICU is the quote based on, and what does each extra day cost?",
+        "Which implant or device brand is quoted, and what are the other options and their prices?",
+        "Can I have the estimate in writing, itemised, before admission?",
+      ],
+      rights:
+        "The Charter of Patients' Rights from the Health Ministry says you have the right to know the rates of services and to receive an itemised bill.",
+      shareText:
+        "My hospital quoted {quote} for {proc}. The Bangalore market estimate is {low} – {high}. I checked it on MedCost India.",
+      disclaimer:
+        "For information only. Market ranges are editorial estimates and prices vary with the patient's condition, the surgeon and the implant. Use this to ask better questions, not as a verdict on a hospital.",
+    },
+    bill: {
+      eyebrow: "Bill checker · Medicines",
+      title: "Check the medicines on your bill",
+      subtitle:
+        "Photograph a pharmacy or hospital bill, or type the lines in. For every tablet or capsule we can match, we compare what you paid per unit with the NPPA ceiling price and the Jan Aushadhi generic.",
+      scanButton: "Photograph a bill",
+      or: "or",
+      addLine: "+ Add a line by hand",
+      privacy: "The photo is read on your device and never uploaded. Nothing you type leaves your browser.",
+      scanFound:
+        "We read {n} lines. Check each one: fix the quantity and amount if needed, then pick the matching medicine.",
+      scanNothing: "We couldn't read any item lines. Try a sharper, well-lit photo, or add the lines by hand.",
+      scanFailed: "The text reader couldn't load. Add the lines by hand instead.",
+      colItem: "Item on the bill",
+      colQty: "Tablets / capsules",
+      colAmount: "Amount (₹)",
+      remove: "Remove line",
+      matchedTo: "Matched to",
+      change: "change",
+      pickMatch: "Which medicine is this? Pick one to check it:",
+      noMatch:
+        "No matching tablet or capsule in our data. Injections, syrups and consumables aren't covered yet.",
+      needQty: "Enter the number of tablets or capsules (not strips) to check this line.",
+      status: {
+        aboveCeiling: "{per} per {unit} is above the legal ceiling of {ceiling}, even with 12% GST added.",
+        withinCeiling: "{per} per {unit} is within the legal ceiling of {ceiling} including GST.",
+        noCeiling: "{per} per {unit}. This medicine isn't under NPPA price control, so there's no legal ceiling.",
+        checkUnits:
+          "{per} per {unit} is far above the ceiling of {ceiling}. Is the quantity in strips? Enter the number of tablets.",
+      },
+      ceilingSource: "NPPA ceiling {price} per unit before GST · S.O. {so}, {date}",
+      jaLine: "{qty} {unit}s of the Jan Aushadhi generic cost {ja}.",
+      jaSaving: "About {saving} less.",
+      brandMrp: "This brand's listed MRP was {price} per {unit} in Nov 2022.",
+      summaryHeading: "Your bill at a glance",
+      summaryChecked: "medicine lines checked",
+      summaryAbove: "above the legal ceiling",
+      summarySaving: "less with Jan Aushadhi generics",
+      complain:
+        "Paid above a ceiling price? You can report overcharging to the National Pharmaceutical Pricing Authority (Pharma Jan Samadhan) at",
+      shareText:
+        "I checked {n} medicines on my bill: {above} were above the government ceiling price, and Jan Aushadhi generics would have cost {saving} less.",
+      notChecked: "Room, procedure, test and consumable charges aren't checked here yet. Got a procedure estimate?",
+      quoteLink: "Check a hospital quote →",
+      disclaimer:
+        "For information only. A flag is a reason to ask the pharmacy for an explanation, not proof of overcharging: check that we matched the right medicine and that the quantity is in tablets. Never switch medicines without asking your doctor.",
+    },
     methodology: {
       title: "Methodology & sources",
       intro:
@@ -287,6 +390,11 @@ export const translations = {
         "Jan Aushadhi prices come from the PMBJP product list. Ceiling prices come from NPPA's notified list and exclude GST. Brand prices are listed MRPs from the A-Z Medicine Dataset of India (Kaggle, CC BY-SA 4.0), a November 2022 snapshot. They are shown with that date and are not current shop prices. The medicine data on this site is shared under the same CC BY-SA 4.0 licence. Salt names are checked against NRCeS Common Drug Codes for India (C-DAC, CC BY 4.0).",
       medBody3:
         "Jan Aushadhi store addresses come from the PMBJP Kendra list. We don't show the operator's personal name. The list has no map coordinates, so stores are found by PIN code, not by distance.",
+      checkHeading: "Quote and bill checkers",
+      checkBody1:
+        "The quote checker places the amount you type against the HexaHealth market range and hospital-wise prices for that procedure in Bangalore, and divides it by the CGHS rate for the room type you pick. It reports where the quote sits. It does not decide that a hospital overcharged: prices legitimately vary with the patient's condition, the surgeon and the implant.",
+      checkBody2:
+        "The bill checker reads a photo on your device, splits it into lines, and pre-fills each line's description, quantity and amount for you to correct. You pick the matching medicine; we never pick it for you. Paid per unit is the amount divided by the number of tablets. NPPA ceilings exclude GST and medicines are taxed at 5% or 12%, so a line is flagged only if it is above the ceiling even with 12% added. A line far above the ceiling usually means the quantity was entered in strips, so we ask you to check it instead of flagging it. Only tablets and capsules in our medicine data can be checked.",
       correctionsHeading: "Corrections",
       correctionsBody:
         "If you run a hospital listed here and believe something is inaccurate or out of date, we want to fix it quickly. A correction channel will be linked from every hospital page once the contribution flow ships.",
@@ -301,6 +409,7 @@ export const translations = {
       medicines: "दवाइयां",
       kendras: "जन औषधि केंद्र",
       findPrice: "कीमत खोजें",
+      checkBill: "बिल जाँचें",
     },
     footer: {
       tagline:
@@ -310,10 +419,16 @@ export const translations = {
       credit: "अंशुल द्वारा निर्मित",
     },
     home: {
-      eyebrow: "बैंगलोर मूल्य निर्धारण पायलट",
-      title: "अस्पताल जाने से पहले जानें कि किसी प्रक्रिया की लागत कितनी होनी चाहिए।",
+      eyebrow: "भारत में चिकित्सा मूल्य पारदर्शिता",
+      title: "क्या आपका अस्पताल बिल सही था?",
       subtitle:
-        "सरकारी संदर्भ दर, बाजार सीमा, और — जहां उपलब्ध हो — अस्पताल-दर-अस्पताल मूल्य तुलना देखने के लिए एक प्रक्रिया खोजें।",
+        "हामी भरने से पहले अस्पताल का कोटेशन जाँचें, या चुकाए गए बिल की दवाइयाँ सरकारी संदर्भ कीमतों से जाँचें। हर संख्या के साथ उसका स्रोत दिखता है।",
+      actionQuoteTitle: "अस्पताल का कोटेशन जाँचें",
+      actionQuoteBody: "अनुमान की तुलना बाज़ार सीमा, अस्पताल-वार कीमतों और CGHS दर से करें।",
+      actionBillTitle: "दवा का बिल जाँचें",
+      actionBillBody: "बिल की फ़ोटो लें। हम NPPA अधिकतम मूल्य से ऊपर की लाइनें दिखाते हैं और जन औषधि की कीमत बताते हैं।",
+      actionPrivate: "आपके डिवाइस पर पढ़ा जाता है, कभी अपलोड नहीं",
+      orSearch: "या देखें कि बैंगलोर में किसी प्रक्रिया का कितना खर्च है",
       statProcedures: "{n} प्रक्रियाओं की कीमत उपलब्ध",
       statHospitals: "2,684 नेटवर्क अस्पताल",
       statCities: "{n} शहर",
@@ -392,6 +507,7 @@ export const translations = {
       colMax: "अधिकतम",
       footerNote:
         "ये संपादकीय बाजार अनुमान हैं, पुष्ट बिल की गई राशि नहीं — इन्हें तुलना के लिए एक शुरुआती बिंदु मानें, उद्धरण नहीं।",
+      checkQuote: "अस्पताल से कोटेशन मिला है? इन संख्याओं से जाँचें →",
     },
     rates: {
       eyebrow: "दर एक्सप्लोरर",
@@ -541,6 +657,99 @@ export const translations = {
       sourceDated:
         "स्रोत: Google समीक्षाएं, {date} को ली गईं। शब्द उनके लेखकों के हैं।",
     },
+    check: {
+      share: "नतीजा साझा करें",
+      copied: "क्लिपबोर्ड पर कॉपी हो गया",
+      methodologyLink: "जाँच कैसे होती है",
+    },
+    quote: {
+      eyebrow: "कोटेशन जाँच · बैंगलोर",
+      title: "क्या अस्पताल का कोटेशन सही है?",
+      subtitle:
+        "प्रक्रिया चुनें और अस्पताल द्वारा बताई गई राशि लिखें। हम इसे बैंगलोर की बाज़ार सीमा, हमारे पास मौजूद अस्पताल-वार कीमतों और CGHS सरकारी दर से मिलाते हैं।",
+      procedureLabel: "प्रक्रिया",
+      procedurePlaceholder: "प्रक्रिया चुनें…",
+      amountLabel: "बताई गई राशि",
+      wardLabel: "कमरे का प्रकार",
+      ward: { general: "जनरल वार्ड", semiPrivate: "सेमी-प्राइवेट", private: "प्राइवेट" },
+      wardNoCghs: "इस प्रक्रिया की CGHS दर नहीं है, इसलिए कमरे के प्रकार से नतीजा नहीं बदलता।",
+      verdict: {
+        below: "यह कोटेशन {proc} के हमारे सबसे कम बाज़ार अनुमान से भी कम है।",
+        lowerHalf: "यह कोटेशन {proc} की बाज़ार सीमा के निचले आधे हिस्से में है।",
+        upperHalf: "यह कोटेशन {proc} की बाज़ार सीमा के ऊपरी आधे हिस्से में है।",
+        above: "यह कोटेशन {proc} के हमारे सबसे ऊँचे बाज़ार अनुमान से भी ज़्यादा है।",
+        unknown: "{proc} की बाज़ार सीमा अभी हमारे पास नहीं है।",
+      },
+      rangeHeading: "बैंगलोर बाज़ार सीमा",
+      rangeSource: "संपादकीय बाज़ार अनुमान, बिल की गई राशि नहीं। स्रोत:",
+      hospitalsHeading: "जिन अस्पतालों की कीमतें हमारे पास हैं",
+      hospitalsBelow: "{n} में से {below} अस्पतालों की सामान्य कीमत इस कोटेशन से कम है।",
+      hospitalsNone: "इस प्रक्रिया की अस्पताल-वार कीमतें अभी नहीं हैं।",
+      seeHospitals: "अस्पताल-वार कीमतें देखें →",
+      cghsHeading: "सरकारी (CGHS) दर",
+      cghsMultiple: "आपका कोटेशन CGHS दर {rate} का {x} गुना है।",
+      cghsExplain:
+        "CGHS वह राशि है जो सरकार सूचीबद्ध अस्पतालों को देती है, इसलिए निजी कोटेशन आमतौर पर ज़्यादा होते हैं। यह तुलना का निचला आधार है, उचित कीमत नहीं।",
+      cghsNone: "इस प्रक्रिया का कोई पक्का CGHS मिलान नहीं है।",
+      askHeading: "हामी भरने से पहले अस्पताल से पूछें",
+      askList: [
+        "क्या यह पैकेज कीमत है? इसमें ठीक-ठीक क्या शामिल है: कमरा, सर्जन और एनेस्थेटिस्ट की फ़ीस, इम्प्लांट, दवाइयाँ, कंज़्यूमेबल, जाँचें?",
+        "कोटेशन अस्पताल और ICU में कितने दिनों के हिसाब से है, और हर अतिरिक्त दिन का कितना खर्च है?",
+        "कौन-सा इम्प्लांट या डिवाइस ब्रांड जोड़ा गया है, और दूसरे विकल्प और उनकी कीमतें क्या हैं?",
+        "क्या भर्ती से पहले मुझे मदवार लिखित अनुमान मिल सकता है?",
+      ],
+      rights:
+        "स्वास्थ्य मंत्रालय के मरीज़ अधिकार चार्टर के अनुसार आपको सेवाओं की दरें जानने और मदवार बिल पाने का अधिकार है।",
+      shareText:
+        "मेरे अस्पताल ने {proc} के लिए {quote} बताया। बैंगलोर का बाज़ार अनुमान {low} – {high} है। मैंने इसे MedCost India पर जाँचा।",
+      disclaimer:
+        "केवल जानकारी के लिए। बाज़ार सीमाएँ संपादकीय अनुमान हैं, और कीमत मरीज़ की हालत, सर्जन और इम्प्लांट के अनुसार बदलती है। इसे बेहतर सवाल पूछने के लिए इस्तेमाल करें, अस्पताल पर फ़ैसले के रूप में नहीं।",
+    },
+    bill: {
+      eyebrow: "बिल जाँच · दवाइयाँ",
+      title: "अपने बिल की दवाइयाँ जाँचें",
+      subtitle:
+        "फ़ार्मेसी या अस्पताल के बिल की फ़ोटो लें, या लाइनें खुद लिखें। हर गोली या कैप्सूल जिसका हम मिलान कर पाते हैं, उसके लिए हम आपके प्रति यूनिट भुगतान की तुलना NPPA अधिकतम मूल्य और जन औषधि जेनेरिक से करते हैं।",
+      scanButton: "बिल की फ़ोटो लें",
+      or: "या",
+      addLine: "+ खुद लाइन जोड़ें",
+      privacy: "फ़ोटो आपके डिवाइस पर ही पढ़ी जाती है और कभी अपलोड नहीं होती। आप जो लिखते हैं वह आपके ब्राउज़र से बाहर नहीं जाता।",
+      scanFound: "हमने {n} लाइनें पढ़ीं। हर लाइन जाँचें: ज़रूरत हो तो मात्रा और राशि ठीक करें, फिर मिलती हुई दवा चुनें।",
+      scanNothing: "हम कोई आइटम लाइन नहीं पढ़ सके। साफ़, अच्छी रोशनी वाली फ़ोटो लें, या लाइनें खुद जोड़ें।",
+      scanFailed: "टेक्स्ट रीडर लोड नहीं हो सका। लाइनें खुद जोड़ें।",
+      colItem: "बिल पर आइटम",
+      colQty: "गोलियाँ / कैप्सूल",
+      colAmount: "राशि (₹)",
+      remove: "लाइन हटाएँ",
+      matchedTo: "मिलान:",
+      change: "बदलें",
+      pickMatch: "यह कौन-सी दवा है? जाँचने के लिए एक चुनें:",
+      noMatch: "हमारे डेटा में कोई मिलती गोली या कैप्सूल नहीं है। इंजेक्शन, सिरप और कंज़्यूमेबल अभी शामिल नहीं हैं।",
+      needQty: "इस लाइन को जाँचने के लिए गोलियों या कैप्सूल की संख्या लिखें (स्ट्रिप नहीं)।",
+      status: {
+        aboveCeiling: "{per} प्रति {unit} कानूनी अधिकतम मूल्य {ceiling} से ज़्यादा है, 12% GST जोड़ने के बाद भी।",
+        withinCeiling: "{per} प्रति {unit} GST सहित कानूनी अधिकतम मूल्य {ceiling} के भीतर है।",
+        noCeiling: "{per} प्रति {unit}। यह दवा NPPA मूल्य नियंत्रण में नहीं है, इसलिए कोई कानूनी अधिकतम मूल्य नहीं है।",
+        checkUnits:
+          "{per} प्रति {unit} अधिकतम मूल्य {ceiling} से बहुत ज़्यादा है। क्या मात्रा स्ट्रिप में है? गोलियों की संख्या लिखें।",
+      },
+      ceilingSource: "NPPA अधिकतम मूल्य {price} प्रति यूनिट, GST से पहले · S.O. {so}, {date}",
+      jaLine: "जन औषधि जेनेरिक की {qty} {unit} की कीमत {ja} है।",
+      jaSaving: "लगभग {saving} कम।",
+      brandMrp: "नवंबर 2022 में इस ब्रांड की सूचीबद्ध MRP {price} प्रति {unit} थी।",
+      summaryHeading: "आपका बिल एक नज़र में",
+      summaryChecked: "दवा लाइनें जाँची गईं",
+      summaryAbove: "कानूनी अधिकतम मूल्य से ज़्यादा",
+      summarySaving: "जन औषधि जेनेरिक से कम",
+      complain:
+        "अधिकतम मूल्य से ज़्यादा भुगतान किया? आप राष्ट्रीय औषधि मूल्य निर्धारण प्राधिकरण (फ़ार्मा जन समाधान) को ज़्यादा वसूली की शिकायत कर सकते हैं:",
+      shareText:
+        "मैंने अपने बिल की {n} दवाइयाँ जाँचीं: {above} सरकारी अधिकतम मूल्य से ज़्यादा थीं, और जन औषधि जेनेरिक {saving} सस्ते पड़ते।",
+      notChecked: "कमरे, प्रक्रिया, जाँच और कंज़्यूमेबल के शुल्क अभी यहाँ नहीं जाँचे जाते। प्रक्रिया का अनुमान मिला है?",
+      quoteLink: "अस्पताल का कोटेशन जाँचें →",
+      disclaimer:
+        "केवल जानकारी के लिए। फ़्लैग फ़ार्मेसी से स्पष्टीकरण माँगने का कारण है, ज़्यादा वसूली का सबूत नहीं: जाँच लें कि हमने सही दवा मिलाई है और मात्रा गोलियों में है। डॉक्टर से पूछे बिना दवा कभी न बदलें।",
+    },
     methodology: {
       title: "पद्धति और स्रोत",
       intro:
@@ -568,6 +777,11 @@ export const translations = {
         "जन औषधि कीमतें PMBJP उत्पाद सूची से हैं। अधिकतम मूल्य NPPA की अधिसूचित सूची से हैं और GST को छोड़कर हैं। ब्रांड कीमतें A-Z Medicine Dataset of India (Kaggle, CC BY-SA 4.0) की सूचीबद्ध MRP हैं, जो नवंबर 2022 का स्नैपशॉट है। ये उसी तारीख के साथ दिखाई जाती हैं और दुकान की आज की कीमत नहीं हैं। इस साइट का दवा डेटा उसी CC BY-SA 4.0 लाइसेंस के तहत साझा है। साल्ट के नाम NRCeS Common Drug Codes for India (C-DAC, CC BY 4.0) से जांचे जाते हैं।",
       medBody3:
         "जन औषधि केंद्रों के पते PMBJP केंद्र सूची से हैं। हम संचालक का निजी नाम नहीं दिखाते। सूची में नक्शे के निर्देशांक नहीं हैं, इसलिए केंद्र दूरी से नहीं, पिन कोड से खोजे जाते हैं।",
+      checkHeading: "कोटेशन और बिल जाँच",
+      checkBody1:
+        "कोटेशन जाँच आपकी लिखी राशि को बैंगलोर में उस प्रक्रिया की HexaHealth बाज़ार सीमा और अस्पताल-वार कीमतों के सामने रखती है, और आपके चुने कमरे के प्रकार की CGHS दर से भाग देती है। यह बताती है कि कोटेशन कहाँ है। यह तय नहीं करती कि अस्पताल ने ज़्यादा वसूला: कीमत मरीज़ की हालत, सर्जन और इम्प्लांट के अनुसार उचित रूप से बदलती है।",
+      checkBody2:
+        "बिल जाँच आपके डिवाइस पर फ़ोटो पढ़ती है, उसे लाइनों में बाँटती है, और हर लाइन का विवरण, मात्रा और राशि पहले से भर देती है ताकि आप सुधार सकें। मिलती हुई दवा आप चुनते हैं; हम आपकी ओर से कभी नहीं चुनते। प्रति यूनिट भुगतान = राशि ÷ गोलियों की संख्या। NPPA अधिकतम मूल्य में GST शामिल नहीं होता और दवाओं पर 5% या 12% GST लगता है, इसलिए लाइन को तभी फ़्लैग किया जाता है जब वह 12% जोड़ने के बाद भी अधिकतम मूल्य से ऊपर हो। अधिकतम मूल्य से बहुत ऊपर की लाइन का मतलब आमतौर पर मात्रा स्ट्रिप में लिखी होना है, इसलिए हम फ़्लैग करने के बजाय आपसे जाँचने को कहते हैं। केवल हमारे दवा डेटा की गोलियाँ और कैप्सूल जाँचे जा सकते हैं।",
       correctionsHeading: "सुधार",
       correctionsBody:
         "यदि आप यहां सूचीबद्ध किसी अस्पताल को चलाते हैं और मानते हैं कि कुछ गलत या पुराना है, तो हम इसे जल्दी ठीक करना चाहते हैं। योगदान प्रवाह शुरू होने के बाद हर अस्पताल पृष्ठ पर एक सुधार चैनल जोड़ा जाएगा।",

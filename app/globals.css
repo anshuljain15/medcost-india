@@ -28,6 +28,13 @@
      above, which inverts in dark mode. */
   --contrast-bg: #0f172a;
   --contrast-fg: #ffffff;
+
+  /* "Above the reference" flags on the quote and bill checkers. Amber, not
+     red: a flag is a reason to ask the hospital, not proof of overcharging. */
+  --warn-50: #fffbeb;
+  --warn-200: #fde68a;
+  --warn-700: #b45309;
+  --warn-900: #78350f;
 }
 
 [data-theme="dark"] {
@@ -52,6 +59,11 @@
   --ink-300: #334155;
   --ink-100: #1e293b;
   --ink-50: #0f172a;
+
+  --warn-50: #2a1d06;
+  --warn-200: #78350f;
+  --warn-700: #fbbf24;
+  --warn-900: #fde68a;
 }
 
 @theme inline {
@@ -79,6 +91,11 @@
   --color-ink-300: var(--ink-300);
   --color-ink-100: var(--ink-100);
   --color-ink-50: var(--ink-50);
+
+  --color-warn-50: var(--warn-50);
+  --color-warn-200: var(--warn-200);
+  --color-warn-700: var(--warn-700);
+  --color-warn-900: var(--warn-900);
 }
 
 body {

@@ -197,6 +197,23 @@ Prescription photos are read **in the browser** by `tesseract.js`
 uploaded, so no API route is needed on either target. OCR words are only
 offered as chips that hit the index, never auto-searched.
 
+## Quote and bill checkers
+
+`/check-quote` places a typed procedure quote against the HexaHealth range,
+hospital-wise prices and the CGHS ward rate. `/check-bill` reads a bill photo
+in the browser (`lib/ocr.ts`, shared with `PrescriptionScan`), pre-fills
+editable rows, and compares each **person-picked** medicine with its NPPA
+ceiling and Jan Aushadhi price. Logic lives in `lib/billCheck.ts`; the
+bill page gets only `getMedicineRefs()` (a ~1,400-row slice) as props.
+
+- Results are worded "above / within the reference", never "overcharged".
+  Flags use the `warn-*` tokens (amber), not red.
+- NPPA ceilings exclude GST, so a line is flagged only above ceiling × 1.12
+  (`MAX_GST`). Far above the ceiling (`STRIPS_SUSPECT`) means "check you
+  entered tablets, not strips", not a flag.
+- Medicine matches are offered as chips, never auto-picked. Nothing typed or
+  photographed leaves the browser; no API route is involved.
+
 ## Frontend conventions
 
 - **Next.js 16 App Router, React 19, Tailwind v4, TypeScript strict.** Path alias
