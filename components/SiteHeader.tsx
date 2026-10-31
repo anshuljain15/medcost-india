@@ -12,11 +12,9 @@ export default function SiteHeader() {
 
   const navLinks = [
     { href: "/check-bill", label: t("nav.checkBill") },
+    { href: "/medicines", label: t("nav.medicines") },
     { href: "/procedures", label: t("nav.procedures") },
     { href: "/hospitals", label: t("nav.hospitals") },
-    { href: "/medicines", label: t("nav.medicines") },
-    { href: "/rates", label: t("nav.rates") },
-    { href: "/methodology", label: t("nav.methodology") },
   ];
 
   return (
@@ -41,10 +39,10 @@ export default function SiteHeader() {
             <ThemeToggle />
           </div>
           <Link
-            href="/procedures"
+            href="/share-bill"
             className="hidden rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 sm:inline-block"
           >
-            {t("nav.findPrice")}
+            {t("nav.shareBill")}
           </Link>
           <button
             type="button"
@@ -73,6 +71,13 @@ export default function SiteHeader() {
               </Link>
             ))}
           </nav>
+          <Link
+            href="/share-bill"
+            onClick={() => setMenuOpen(false)}
+            className="mt-4 inline-block rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white sm:hidden"
+          >
+            {t("nav.shareBill")}
+          </Link>
           <div className="mt-4 flex items-center gap-3 sm:hidden">
             <LanguageToggle />
             <ThemeToggle />

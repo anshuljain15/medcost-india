@@ -17,7 +17,7 @@ export default function SiteFooter() {
             </div>
             <p className="mt-2 max-w-xs">{t("footer.tagline")}</p>
           </div>
-          <div className="flex gap-12">
+          <div className="flex flex-wrap gap-x-12 gap-y-6">
             <div>
               <div className="font-semibold text-ink-900">{t("footer.explore")}</div>
               <ul className="mt-2 space-y-1">
@@ -26,6 +26,14 @@ export default function SiteFooter() {
                 <li><Link href="/rates" className="hover:text-brand-700">{t("nav.rates")}</Link></li>
                 <li><Link href="/medicines" className="hover:text-brand-700">{t("nav.medicines")}</Link></li>
                 <li><Link href="/kendras" className="hover:text-brand-700">{t("nav.kendras")}</Link></li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-semibold text-ink-900">{t("footer.tools")}</div>
+              <ul className="mt-2 space-y-1">
+                <li><Link href="/check-quote" className="hover:text-brand-700">{t("nav.checkQuote")}</Link></li>
+                <li><Link href="/check-bill" className="hover:text-brand-700">{t("nav.checkBill")}</Link></li>
+                <li><Link href="/share-bill" className="hover:text-brand-700">{t("nav.shareBill")}</Link></li>
               </ul>
             </div>
             <div>

@@ -24,6 +24,29 @@ To refresh the data the POC ships with: re-run
 `python data-pipeline/build_static_data.py`, commit the updated
 `data/generated/*.json`, and push — the next Actions run picks it up.
 
+## "Share your bill" — Supabase (one-time setup)
+
+Submissions from `/share-bill` go to a Supabase project. Until it's set up the
+form shows but says submissions aren't open yet.
+
+1. Create a free project at [supabase.com](https://supabase.com) (region:
+   Mumbai, `ap-south-1`).
+2. **SQL Editor → New query**: paste all of
+   `supabase/migrations/0001_bill_reports.sql` and run it.
+3. **Project Settings → API**: copy the **Project URL** and the
+   **anon / publishable** key. Never use the `service_role` / secret key here.
+4. GitHub repo → **Settings → Secrets and variables → Actions → Variables**:
+   add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` with those values.
+5. Re-run the "Deploy POC to GitHub Pages" workflow (or push any commit).
+
+**Moderating:** Table Editor → `bill_reports`, filter `status = pending`,
+and set each row to `approved` or `rejected`. Only approved rows count, and a
+city + procedure appears on the site once it has 5 approved bills from 3
+different browsers. Hospitals are never shown.
+
+For Vercel, add the same two values as `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` environment variables.
+
 ## Full site — Vercel
 
 Same repo, normal Next.js build (`output` unset → SSR/ISR/API routes all

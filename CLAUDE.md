@@ -214,6 +214,33 @@ bill page gets only `getMedicineRefs()` (a ~1,400-row slice) as props.
 - Medicine matches are offered as chips, never auto-picked. Nothing typed or
   photographed leaves the browser; no API route is involved.
 
+## Patient-reported bills (Supabase)
+
+`/share-bill` is a 5-step form (procedure, city, optional hospital, stay,
+quoted vs final amount, payment, optional charge breakdown and "surprising
+charges"). It writes to Supabase through `lib/billReports.ts`, the one
+data-access module that talks to a live backend. The schema, RLS and both
+RPCs are in `supabase/migrations/0001_bill_reports.sql`.
+
+- **The browser can only call `submit_bill()` and `bill_stats()`.** The table
+  has RLS on, no policies and no grants to `anon`, so the public key can't
+  read or change rows. Every submission is `pending` until approved by hand in
+  the Supabase Table Editor.
+- **Hospitals are collected, never shown.** `bill_stats()` returns only
+  city + procedure aggregates of approved rows with >= 5 bills from >= 3
+  browser ids (`UNLOCK_BILLS` / `UNLOCK_BROWSERS` mirror it). Don't add a
+  hospital dimension to it: an unverified price must not become a public
+  claim about a named hospital.
+- **Patient-reported numbers are a separate layer.** Never mix them into the
+  sourced ranges (HexaHealth, CGHS, NPPA) or present them as a source.
+- `browser_id` is a random id in localStorage, used for rate limits (3 per
+  browser per 7 days, 30 site-wide per 10 minutes) and the distinct-submitter
+  count. It is not a person, and it is easy to reset; moderation is the gate.
+- Build-time env `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  (repo Variables in GitHub Actions). Unset, the form renders with
+  submissions disabled. The SQL was tested against PGlite; there's no Supabase
+  project in CI.
+
 ## Frontend conventions
 
 - **Next.js 16 App Router, React 19, Tailwind v4, TypeScript strict.** Path alias

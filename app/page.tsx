@@ -1,22 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { getAllProcedures, getCities } from "@/lib/data";
-import { formatINR } from "@/lib/format";
+import { getAllProcedures } from "@/lib/data";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 import ProcedureSearch from "@/components/ProcedureSearch";
 
 export default function Home() {
-  const { t, dict } = useTranslation();
+  const { t } = useTranslation();
   const procedures = getAllProcedures();
-  const cities = getCities();
 
-  const featured = procedures.find((p) => p.slug === "kidney-transplant") ?? procedures[0];
+  const actions = [
+    { href: "/check-quote", title: t("home.actionQuoteTitle"), body: t("home.actionQuoteBody"), note: null },
+    { href: "/check-bill", title: t("home.actionBillTitle"), body: t("home.actionBillBody"), note: t("home.actionPrivate") },
+    { href: "/share-bill", title: t("home.actionShareTitle"), body: t("home.actionShareBody"), note: null },
+  ];
 
   return (
     <div>
-      <section className="border-b border-ink-100 bg-gradient-to-b from-brand-50 to-background px-4 py-20">
-        <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
+      <section className="border-b border-ink-100 bg-gradient-to-b from-brand-50 to-background px-4 pb-16 pt-16 sm:pt-20">
+        <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
           <p className="rounded-full bg-brand-100 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-brand-800">
             {t("home.eyebrow")}
           </p>
@@ -24,102 +26,45 @@ export default function Home() {
             {t("home.title")}
           </h1>
           <p className="mt-5 max-w-xl text-lg text-ink-700">{t("home.subtitle")}</p>
-          <div className="mt-10 grid w-full gap-4 text-left sm:grid-cols-2">
-            {[
-              { href: "/check-quote", title: t("home.actionQuoteTitle"), body: t("home.actionQuoteBody"), note: null },
-              { href: "/check-bill", title: t("home.actionBillTitle"), body: t("home.actionBillBody"), note: t("home.actionPrivate") },
-            ].map((a) => (
+
+          <div className="mt-10 grid w-full gap-4 text-left sm:grid-cols-3">
+            {actions.map((a) => (
               <Link
                 key={a.href}
                 href={a.href}
-                className="group rounded-2xl border border-brand-200 bg-surface p-6 shadow-sm transition hover:border-brand-500 hover:shadow-md"
+                className="group flex flex-col rounded-2xl border border-brand-200 bg-surface p-5 shadow-sm transition hover:border-brand-500 hover:shadow-md"
               >
-                <div className="flex items-center justify-between text-lg font-semibold text-ink-900">
+                <div className="flex items-center justify-between font-semibold text-ink-900">
                   {a.title}
                   <span className="text-brand-600 transition group-hover:translate-x-1">→</span>
                 </div>
                 <p className="mt-2 text-sm text-ink-700">{a.body}</p>
-                {a.note && <p className="mt-3 text-xs font-medium text-brand-700">{a.note}</p>}
+                {a.note && <p className="mt-auto pt-3 text-xs font-medium text-brand-700">{a.note}</p>}
               </Link>
             ))}
           </div>
-          <p className="mt-10 text-sm font-medium text-ink-500">{t("home.orSearch")}</p>
+
+          <p className="mt-12 text-sm font-medium text-ink-500">{t("home.orSearch")}</p>
           <div className="mt-3 flex w-full justify-center">
             <ProcedureSearch procedures={procedures} />
           </div>
-          <div className="mt-6 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-ink-500">
-            <span>{t("home.statProcedures", { n: procedures.length })}</span>
-            <span>{t("home.statHospitals")}</span>
-            <span>{t("home.statCities", { n: cities.length })}</span>
-          </div>
-        </div>
-      </section>
-
-      {featured && (
-        <section className="border-b border-ink-100 px-4 py-16">
-          <div className="mx-auto max-w-4xl">
-            <p className="text-sm font-semibold uppercase tracking-wide text-brand-700">
-              {t("home.exampleEyebrow")}
-            </p>
-            <h2 className="mt-2 text-2xl font-bold text-ink-900">
-              {featured.name} {t("home.exampleTitleSuffix")}
-            </h2>
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl border border-ink-100 bg-ink-50 p-5">
-                <div className="text-xs uppercase tracking-wide text-ink-500">{t("home.marketRange")}</div>
-                <div className="mt-1 text-xl font-bold text-ink-900">
-                  {formatINR(featured.cityLow)} – {formatINR(featured.cityHigh)}
-                </div>
-                <div className="mt-1 text-xs text-ink-500">{t("home.sourceHexaHealth")}</div>
-              </div>
-              <div className="rounded-xl border border-ink-100 bg-ink-50 p-5">
-                <div className="text-xs uppercase tracking-wide text-ink-500">{t("home.hospitalsPriced")}</div>
-                <div className="mt-1 text-xl font-bold text-ink-900">
-                  {featured.hospitalPrices.length}
-                </div>
-                <div className="mt-1 text-xs text-ink-500">{t("home.namedHospitals")}</div>
-              </div>
-              <div className="rounded-xl border border-ink-100 bg-ink-50 p-5">
-                <div className="text-xs uppercase tracking-wide text-ink-500">{t("home.govReference")}</div>
-                <div className="mt-1 text-xl font-bold text-ink-900">
-                  {featured.cghsReference ? formatINR(Number(featured.cghsReference.generalWard)) : t("home.notAvailable")}
-                </div>
-                <div className="mt-1 text-xs text-ink-500">{t("home.tierNote")}</div>
-              </div>
-            </div>
-            <Link
-              href={`/procedures/${featured.slug}`}
-              className="mt-6 inline-block text-sm font-semibold text-brand-700 hover:underline"
-            >
-              {t("home.seeComparison")}
+          <p className="mt-6 text-xs text-ink-500">
+            {t("home.sourcesLabel")}{" "}
+            <Link href="/methodology" className="font-medium text-brand-700 hover:underline">
+              {t("home.howWeWork")}
             </Link>
-          </div>
-        </section>
-      )}
-
-      <section className="px-4 py-16">
-        <div className="mx-auto max-w-5xl">
-          <h2 className="text-2xl font-bold text-ink-900">{t("home.featuresHeading")}</h2>
-          <div className="mt-8 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-            {dict.home.features.map((f, i) => (
-              <div key={f.title}>
-                <div className="text-sm font-bold text-brand-600">{String(i + 1).padStart(2, "0")}</div>
-                <div className="mt-2 font-semibold text-ink-900">{f.title}</div>
-                <p className="mt-1 text-sm text-ink-700">{f.body}</p>
-              </div>
-            ))}
-          </div>
+          </p>
         </div>
       </section>
 
-      <section className="border-t border-ink-100 bg-contrast px-4 py-16 text-contrast-fg">
+      <section className="bg-contrast px-4 py-14 text-contrast-fg">
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 text-center sm:flex-row sm:justify-between sm:text-left">
           <div>
             <h2 className="text-2xl font-bold">{t("home.ctaHeading")}</h2>
             <p className="mt-2 max-w-md text-[#cbd5e1]">{t("home.ctaBody")}</p>
           </div>
           <Link
-            href="/hospitals"
+            href="/share-bill"
             className="shrink-0 rounded-full bg-brand-500 px-6 py-3 text-sm font-semibold text-[#0f172a] hover:bg-brand-400"
           >
             {t("home.ctaButton")}
