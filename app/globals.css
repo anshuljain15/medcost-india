@@ -1,105 +1,236 @@
 @import "tailwindcss";
 
+/* Theme comes only from [data-theme] on <html> (NO_FLASH_THEME_SCRIPT).
+   This makes any stray `dark:` follow the user's choice, not the OS.
+   New code must not use `dark:`: role tokens already switch. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ============================== LIGHT ============================== */
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
-  --surface: #ffffff;
+  color-scheme: light;
 
-  --brand-50: #f0fdfa;
-  --brand-100: #ccfbf1;
-  --brand-200: #99f6e4;
-  --brand-300: #5eead4;
-  --brand-400: #2dd4bf;
-  --brand-500: #14b8a6;
-  --brand-600: #0d9488;
-  --brand-700: #0f766e;
-  --brand-800: #115e59;
-  --brand-900: #134e4a;
+  /* Surfaces */
+  --canvas: #f5f5f7;            /* page */
+  --surface: #ffffff;           /* cards, inset groups, inputs, tab bar */
+  --surface-2: #f5f5f7;         /* sunken panel inside a card */
+  --elevated: #ffffff;          /* sheets, popovers, listboxes (+ shadow-pop) */
+  --fill: #ebedf0;              /* chips, segmented track, range track, pressed rows */
+  --thumb: #ffffff;             /* selected segment */
+  --hairline: #e3e5e8;          /* separators: decorative */
+  --control: #7b8490;           /* input / chip / radio borders: >=3:1 */
+  --scrim: rgb(0 0 0 / 0.4);
 
-  --ink-900: #0f172a;
-  --ink-700: #334155;
-  --ink-500: #64748b;
-  --ink-300: #cbd5e1;
-  --ink-100: #f1f5f9;
-  --ink-50: #f8fafc;
+  /* Text */
+  --label: #1d1d1f;
+  --label-2: #4a5260;
+  --label-3: #5f6774;
 
-  /* Fixed dark decorative band (e.g. the closing CTA section) — always
-     dark regardless of site theme, so it must not use the ink-* scale
-     above, which inverts in dark mode. */
-  --contrast-bg: #0f172a;
+  /* Accent: things you can press + selected state. Nothing else. */
+  --accent: #0f766e;
+  --accent-hover: #115e59;
+  --accent-fg: #ffffff;
+  --accent-soft: #e8f6f3;
+  --accent-soft-hover: #cdeee7;
+  --accent-strong: #115e59;     /* text/icon on accent-soft */
+  --focus: #115e59;
+
+  /* Data marks */
+  --range-band: #0d9488;
+  --range-marker: #1d1d1f;
+  --selection: #ccfbf1;
+
+  /* Status */
+  --warn-bg: #fff6e0;  --warn-fg: #7a3e00;  --warn-icon: #b45309;  --warn-line: #f0c36a;
+  --danger-bg: #fdecea; --danger-fg: #b42318;
+  --success-bg: #eaf6ee; --success-fg: #166534; --success-icon: #15803d;
+
+  /* Map: tiles are light (positron) in BOTH themes, so these never switch */
+  --map-pin: #0f766e; --map-cluster: #115e59; --map-on-pin: #ffffff; --map-stroke: #ffffff;
+
+  /* Elevation (dark replaces with lighter surfaces) */
+  --elev-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.06);
+  --elev-card-hover: 0 2px 4px rgb(0 0 0 / 0.05), 0 8px 24px rgb(0 0 0 / 0.10);
+  --elev-pop: 0 2px 8px rgb(0 0 0 / 0.08), 0 12px 40px rgb(0 0 0 / 0.16);
+  --elev-thumb: 0 3px 8px rgb(0 0 0 / 0.12), 0 3px 1px rgb(0 0 0 / 0.04);
+
+  /* Font stack: the Devanagari web font joins only under lang="hi" */
+  --font-stack: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* ---- Existing names, KEPT (components already use them) ---- */
+  --background: var(--canvas);
+  --foreground: var(--label);
+  /* --surface is defined above (same name as before) */
+  --brand-50: #f0fdfa; --brand-100: #ccfbf1; --brand-200: #99f6e4; --brand-300: #5eead4; --brand-400: #2dd4bf;
+  --brand-500: #14b8a6; --brand-600: #0d9488; --brand-700: #0f766e; --brand-800: #115e59; --brand-900: #134e4a;
+  --ink-900: var(--label);
+  --ink-700: #343a44;
+  --ink-500: var(--label-2);
+  --ink-300: var(--control);
+  --ink-100: var(--hairline);
+  --ink-50: var(--surface-2);
+  --contrast-bg: #1d1d1f;       /* kept for compatibility; no new usage */
   --contrast-fg: #ffffff;
-
-  /* "Above the reference" flags on the quote and bill checkers. Amber, not
-     red: a flag is a reason to ask the hospital, not proof of overcharging. */
-  --warn-50: #fffbeb;
-  --warn-200: #fde68a;
-  --warn-700: #b45309;
-  --warn-900: #78350f;
+  --warn-50: var(--warn-bg); --warn-200: var(--warn-line); --warn-700: var(--warn-icon); --warn-900: var(--warn-fg);
 }
 
+/* =============================== DARK =============================== */
 [data-theme="dark"] {
-  --background: #0a0f1a;
-  --foreground: #f1f5f9;
-  --surface: #111827;
+  color-scheme: dark;
+  --canvas: #000000;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --elevated: #2c2c2e;
+  --fill: #333336;
+  --thumb: #636366;
+  --hairline: #38383a;
+  --control: #86868b;
+  --scrim: rgb(0 0 0 / 0.6);
 
-  --brand-50: #0f2e2b;
-  --brand-100: #134e4a;
-  --brand-200: #115e59;
-  --brand-300: #0f766e;
-  --brand-400: #14b8a6;
-  --brand-500: #2dd4bf;
-  --brand-600: #5eead4;
-  --brand-700: #5eead4;
-  --brand-800: #99f6e4;
-  --brand-900: #ccfbf1;
+  --label: #f5f5f7;
+  --label-2: #c1c1c7;
+  --label-3: #a1a1a8;
 
-  --ink-900: #f1f5f9;
-  --ink-700: #cbd5e1;
-  --ink-500: #94a3b8;
-  --ink-300: #334155;
-  --ink-100: #1e293b;
-  --ink-50: #0f172a;
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-fg: #042f2e;
+  --accent-soft: #0d332f;
+  --accent-soft-hover: #134e4a;
+  --accent-strong: #5eead4;
+  --focus: #5eead4;
 
-  --warn-50: #2a1d06;
-  --warn-200: #78350f;
-  --warn-700: #fbbf24;
-  --warn-900: #fde68a;
+  --range-band: #0f9e8f;
+  --range-marker: #f5f5f7;
+  --selection: #134e4a;
+
+  --warn-bg: #2b1f08;  --warn-fg: #fcd34d;  --warn-icon: #fbbf24;  --warn-line: #6b4a10;
+  --danger-bg: #3a1412; --danger-fg: #ff8a80;
+  --success-bg: #0c2a18; --success-fg: #86efac; --success-icon: #4ade80;
+
+  --elev-card: 0 0 #0000;                     /* never `none`: Tailwind composes shadow lists */
+  --elev-card-hover: 0 0 0 1px var(--hairline);
+  --elev-pop: 0 0 0 1px rgb(255 255 255 / 0.08), 0 12px 40px rgb(0 0 0 / 0.6);
+  --elev-thumb: 0 0 0 0.5px rgb(255 255 255 / 0.10);
+
+  /* Dark accent scale: inverted, no duplicate steps (600 != 700) */
+  --brand-50: #0a2523; --brand-100: #0d332f; --brand-200: #134e4a; --brand-300: #115e59; --brand-400: #0f766e;
+  --brand-500: #14b8a6; --brand-600: #2dd4bf; --brand-700: #5eead4; --brand-800: #99f6e4; --brand-900: #ccfbf1;
+  --ink-700: #d1d1d6;
+  /* ink-900/500/300/100/50, background, foreground, warn-50..900 follow their var() targets */
 }
 
+/* =================== Tailwind colour + shadow mapping =================== */
 @theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-elevated: var(--elevated);
+  --color-fill: var(--fill);
+  --color-thumb: var(--thumb);
+  --color-hairline: var(--hairline);
+  --color-control: var(--control);
+  --color-scrim: var(--scrim);
+  --color-label: var(--label);
+  --color-label-2: var(--label-2);
+  --color-label-3: var(--label-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-hover: var(--accent-soft-hover);
+  --color-accent-strong: var(--accent-strong);
+  --color-focus: var(--focus);
+  --color-range-band: var(--range-band);
+  --color-range-marker: var(--range-marker);
+  --color-warn-bg: var(--warn-bg); --color-warn-fg: var(--warn-fg); --color-warn-icon: var(--warn-icon); --color-warn-line: var(--warn-line);
+  --color-danger-bg: var(--danger-bg); --color-danger-fg: var(--danger-fg);
+  --color-success-bg: var(--success-bg); --color-success-fg: var(--success-fg); --color-success-icon: var(--success-icon);
+
+  /* existing names */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
   --color-contrast: var(--contrast-bg);
   --color-contrast-fg: var(--contrast-fg);
-  --font-sans: var(--font-inter);
-
-  --color-brand-50: var(--brand-50);
-  --color-brand-100: var(--brand-100);
-  --color-brand-200: var(--brand-200);
-  --color-brand-300: var(--brand-300);
-  --color-brand-400: var(--brand-400);
-  --color-brand-500: var(--brand-500);
-  --color-brand-600: var(--brand-600);
-  --color-brand-700: var(--brand-700);
-  --color-brand-800: var(--brand-800);
+  --color-brand-50: var(--brand-50);   --color-brand-100: var(--brand-100); --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300); --color-brand-400: var(--brand-400); --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600); --color-brand-700: var(--brand-700); --color-brand-800: var(--brand-800);
   --color-brand-900: var(--brand-900);
+  --color-ink-900: var(--ink-900); --color-ink-700: var(--ink-700); --color-ink-500: var(--ink-500);
+  --color-ink-300: var(--ink-300); --color-ink-100: var(--ink-100); --color-ink-50: var(--ink-50);
+  --color-warn-50: var(--warn-50); --color-warn-200: var(--warn-200); --color-warn-700: var(--warn-700); --color-warn-900: var(--warn-900);
 
-  --color-ink-900: var(--ink-900);
-  --color-ink-700: var(--ink-700);
-  --color-ink-500: var(--ink-500);
-  --color-ink-300: var(--ink-300);
-  --color-ink-100: var(--ink-100);
-  --color-ink-50: var(--ink-50);
+  --shadow-card: var(--elev-card);
+  --shadow-card-hover: var(--elev-card-hover);
+  --shadow-pop: var(--elev-pop);
+  --shadow-thumb: var(--elev-thumb);
 
-  --color-warn-50: var(--warn-50);
-  --color-warn-200: var(--warn-200);
-  --color-warn-700: var(--warn-700);
-  --color-warn-900: var(--warn-900);
+  --font-sans: var(--font-stack);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+/* ===== Scale tokens: NOT inline, so the media/lang overrides below apply ===== */
+@theme {
+  --radius-badge: 6px; --radius-thumb: 9px; --radius-control: 12px; --radius-card: 16px; --radius-sheet: 20px;
+  --container-read: 45.875rem;   /* 734px */
+  --container-page: 66.75rem;    /* 1068px */
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.3, 1);
+  --ease-fade: cubic-bezier(0.4, 0, 0.6, 1);
+
+  --text-display: 2.125rem;  --text-display--line-height: 2.5rem;   --text-display--letter-spacing: -0.022em; --text-display--font-weight: 600;
+  --text-title1: 1.75rem;    --text-title1--line-height: 2.125rem;  --text-title1--letter-spacing: -0.02em;   --text-title1--font-weight: 600;
+  --text-title2: 1.375rem;   --text-title2--line-height: 1.75rem;   --text-title2--letter-spacing: -0.015em;  --text-title2--font-weight: 600;
+  --text-title3: 1.25rem;    --text-title3--line-height: 1.625rem;  --text-title3--letter-spacing: -0.01em;   --text-title3--font-weight: 600;
+  --text-figure: 1.875rem;   --text-figure--line-height: 2.25rem;   --text-figure--letter-spacing: -0.02em;   --text-figure--font-weight: 600;
+  --text-lead: 1.1875rem;    --text-lead--line-height: 1.75rem;     --text-lead--letter-spacing: -0.012em;
+  --text-headline: 1.0625rem;--text-headline--line-height: 1.5rem;  --text-headline--letter-spacing: -0.011em; --text-headline--font-weight: 600;
+  --text-body: 1.0625rem;    --text-body--line-height: 1.625rem;    --text-body--letter-spacing: -0.011em;
+  --text-callout: 1rem;      --text-callout--line-height: 1.5rem;   --text-callout--letter-spacing: -0.006em;
+  --text-footnote: 0.875rem; --text-footnote--line-height: 1.25rem; --text-footnote--letter-spacing: 0;
+  --text-caption: 0.8125rem; --text-caption--line-height: 1.125rem; --text-caption--letter-spacing: 0; --text-caption--font-weight: 600;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --text-display: 3.25rem;  --text-display--line-height: 3.5rem; --text-display--letter-spacing: -0.025em;
+    --text-title1: 2.5rem;    --text-title1--line-height: 2.75rem;
+    --text-title2: 1.75rem;   --text-title2--line-height: 2.125rem; --text-title2--letter-spacing: -0.017em;
+    --text-title3: 1.375rem;  --text-title3--line-height: 1.75rem;
+    --text-figure: 2.5rem;    --text-figure--line-height: 2.875rem;
+    --text-lead: 1.3125rem;   --text-lead--line-height: 2rem;
+    --text-body: 1.125rem;    --text-body--line-height: 1.75rem; --text-body--letter-spacing: -0.014em;
+  }
+}
+
+/* Devanagari: web font, no tracking, taller lines, +1px body */
+html:lang(hi) {
+  --font-stack: var(--font-inter), var(--font-deva), ui-sans-serif, system-ui, sans-serif;
+  --text-display--letter-spacing: 0; --text-title1--letter-spacing: 0; --text-title2--letter-spacing: 0;
+  --text-title3--letter-spacing: 0; --text-lead--letter-spacing: 0; --text-headline--letter-spacing: 0;
+  --text-body--letter-spacing: 0; --text-callout--letter-spacing: 0;
+  --text-display--line-height: 1.3; --text-title1--line-height: 1.35; --text-title2--line-height: 1.4;
+  --text-title3--line-height: 1.45; --text-headline--line-height: 1.55; --text-lead--line-height: 1.65;
+  --text-body: 1.125rem; --text-body--line-height: 1.72;
+  --text-callout--line-height: 1.7; --text-footnote--line-height: 1.65; --text-caption--line-height: 1.55;
+}
+@media (min-width: 48rem) { html:lang(hi) { --text-body: 1.1875rem; } }
+
+@layer base {
+  html { scroll-padding-top: 72px; scroll-padding-bottom: 96px; -webkit-text-size-adjust: 100%; }
+  body { background: var(--canvas); color: var(--label); font-family: var(--font-stack); -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  ::selection { background: var(--selection); color: var(--label); }
+  summary { list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+}
+
+/* Tab bar: room for it, and hide it while the keyboard is up (no JS) */
+body:has([data-tabbar]) { padding-bottom: calc(3.5rem + env(safe-area-inset-bottom)); }
+@media (min-width: 48rem) { body:has([data-tabbar]) { padding-bottom: 0; } }
+body:has(:is(input:not([type="radio"], [type="checkbox"], [type="file"]), textarea, select):focus) [data-tabbar] { display: none; }
+
+/* Returning Hindi users: hide chrome + main until the first Hindi render, max 600ms */
+html[data-locale-pending] :is(#site-header, main, #site-footer, [data-tabbar]) { opacity: 0; animation: mc-reveal 0s linear 0.6s forwards; }
+@keyframes mc-reveal { to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }

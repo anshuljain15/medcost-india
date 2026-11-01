@@ -1,28 +1,10 @@
+import { fetchStaticJson } from "./staticData";
 import type { JanAushadhiKendra } from "./types";
 
 // Browser-side reads of the small JSON shards build_medicines.py writes to
 // public/data/. Fetched on demand, so the 100k-brand search index and the
-// 20k-store list never land in a JS bundle. Static files are the one thing
-// that works the same on GitHub Pages and Vercel; the only target difference
-// is the basePath prefix.
-const BASE = process.env.NEXT_PUBLIC_DEPLOY_TARGET === "static" ? "/medcost-india" : "";
-
-const cache = new Map<string, Promise<unknown>>();
-
-function fetchJson<T>(path: string, fallback: T): Promise<T> {
-  if (!cache.has(path)) {
-    cache.set(
-      path,
-      fetch(`${BASE}/data/${path}`)
-        .then((r) => (r.ok ? r.json() : fallback))
-        .catch(() => {
-          cache.delete(path); // network error: allow a retry
-          return fallback;
-        })
-    );
-  }
-  return cache.get(path) as Promise<T>;
-}
+// 20k-store list never land in a JS bundle. fetchStaticJson (lib/staticData.ts)
+// adds the static basePath and caches each shard for the session.
 
 export function normalize(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -50,7 +32,7 @@ export async function searchMedicines(query: string, limit = 20): Promise<Medici
   const q = normalize(query);
   const key = q.replace(/ /g, "").slice(0, MIN_QUERY_LENGTH);
   if (key.length < MIN_QUERY_LENGTH) return [];
-  const shard = await fetchJson<SearchShard>(`medicines/search/q-${key}.json`, { s: [], e: [] });
+  const shard = await fetchStaticJson<SearchShard>(`medicines/search/q-${key}.json`, { s: [], e: [] });
 
   const qWords = q.split(" ");
   const scored: { hit: MedicineHit; score: number }[] = [];
@@ -76,7 +58,7 @@ export async function searchMedicines(query: string, limit = 20): Promise<Medici
 /** Same PIN first, then the rest of the 3-digit postal area by PIN distance. */
 export async function findKendras(pincode: string): Promise<JanAushadhiKendra[]> {
   if (!/^[1-9]\d{5}$/.test(pincode)) return [];
-  const area = await fetchJson<JanAushadhiKendra[]>(`kendras/${pincode.slice(0, 3)}.json`, []);
+  const area = await fetchStaticJson<JanAushadhiKendra[]>(`kendras/${pincode.slice(0, 3)}.json`, []);
   const pin = Number(pincode);
   return [...area].sort(
     (a, b) => Math.abs(Number(a.pincode) - pin) - Math.abs(Number(b.pincode) - pin)

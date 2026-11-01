@@ -1,9 +1,20 @@
 import hospitalsJson from "@/data/generated/hospitals.json";
 import proceduresJson from "@/data/generated/procedures.json";
-import type { Hospital, Procedure } from "./types";
+import sourceDatesJson from "@/data/source-dates.json";
+import type { Hospital, Procedure, SourceDates } from "./types";
 
 const hospitals = hospitalsJson as Hospital[];
 const procedures = proceduresJson as Procedure[];
+const sourceDates = sourceDatesJson as SourceDates;
+
+/**
+ * Retrieval dates for HexaHealth, CGHS and the hospital directory. Server
+ * only: pages read this and pass the dates down as props. Each is null until
+ * the data owner records it, and null renders as "date not recorded".
+ */
+export function getSourceDates(): SourceDates {
+  return sourceDates;
+}
 
 export function getAllProcedures(): Procedure[] {
   return procedures;

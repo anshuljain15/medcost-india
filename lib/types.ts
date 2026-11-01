@@ -159,3 +159,18 @@ export type JanAushadhiKendra = {
   state: string;
   pincode: string | null;
 };
+
+/**
+ * Retrieval dates for sources whose snapshot carries none of its own
+ * (data/source-dates.json). ISO "YYYY-MM-DD" or "YYYY-MM", filled in by hand by
+ * the data owner. null means "date not recorded" and the UI says exactly that:
+ * a date is never inferred from file times or guessed.
+ */
+export type SourceDates = {
+  /** HexaHealth market estimates (procedures.json). */
+  hexahealth: string | null;
+  /** CGHS rate list (cghs_rates.json and each procedure's cghsReference). */
+  cghs: string | null;
+  /** Hospital directory (hospitals.json). */
+  directory: string | null;
+};
