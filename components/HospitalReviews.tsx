@@ -1,163 +1,217 @@
 "use client";
 
-import { useState } from "react";
-import type { HospitalReviews as Reviews } from "@/lib/types";
+import { useEffect, useId, useRef, useState } from "react";
+import type { HospitalReview, HospitalReviews as Reviews } from "@/lib/types";
+import { formatISODate } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
+import { ActionLink } from "@/components/ui/ActionLink";
+import { Button } from "@/components/ui/Button";
+import { Callout } from "@/components/ui/Callout";
+import { Card } from "@/components/ui/Card";
+import { DataText } from "@/components/ui/DataText";
+import { Icon } from "@/components/ui/Icon";
+import { ExtLink } from "@/components/ui/InlineLink";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { cx } from "@/components/ui/href";
 
-// Review text, author names and photos are Google users' own content. We keep
-// the author attribution and link every review back to its source rather than
-// presenting it as ours, and photos are hotlinked — never copied into this repo.
+// Review text, author names and photos are Google users' own content, taken
+// from a scraping vendor rather than the Places API (see CLAUDE.md and the
+// docstring in data-pipeline/sources/google_reviews.py). Four things here are
+// load-bearing and must not be dropped: the author attribution with a link to
+// the profile, a link back to each review and to the place on Google Maps,
+// photos hotlinked (never copied into this repo), and the visible fetch date.
+// The summary is AI-written and always carries its label and disclaimer.
+//
+// This component receives ONE hospital's record as a prop from the server
+// page; it must never import lib/reviews.ts.
+//
+// The UI also guards those elements, so a bad reviews.json can't publish
+// review text without them: a review with no link back or no author is not
+// shown, and with no link to the place at all the section is not shown.
 
-function Stars({ rating }: { rating: number | null }) {
-  if (rating === null) return null;
+type LinkedReview = HospitalReview & { reviewUrl: string };
+
+function isLinked(r: HospitalReview): r is LinkedReview {
+  return Boolean(r.reviewUrl) && r.author.trim() !== "";
+}
+
+/**
+ * "2026-10-30T08:12:00Z" -> "30 Oct 2026". Anything not ISO is null: the
+ * vendor's "10/04/2026" is month-first (read here as 10 April), and "2 months
+ * ago" goes stale in a static snapshot.
+ */
+function isoDateLabel(value: string | null): string | null {
+  const iso = value ? /^\d{4}-\d{2}-\d{2}/.exec(value.trim()) : null;
+  return iso ? formatISODate(iso[0]) : null;
+}
+
+/** The place on Google Maps: the stored link, or one built from the place id. */
+function placeLink(reviews: Reviews, hospitalName: string): string | null {
+  if (reviews.googleMapsUrl) return reviews.googleMapsUrl;
+  if (!reviews.placeId) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hospitalName)}&query_place_id=${encodeURIComponent(reviews.placeId)}`;
+}
+
+/** Decorative only: the rating is always also given in words. */
+function Stars({ rating }: { rating: number }) {
+  const filled = Math.max(0, Math.min(5, Math.round(rating)));
   return (
-    <span className="text-brand-600" aria-hidden="true">
-      {"★".repeat(Math.round(rating))}
-      <span className="text-ink-300">{"★".repeat(5 - Math.round(rating))}</span>
+    <span aria-hidden="true" className="inline-flex shrink-0 gap-0.5">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Icon key={i} name="star" className={i < filled ? "size-4 fill-current text-label-2" : "size-4 text-label-3"} />
+      ))}
     </span>
   );
 }
 
 function PhotoStrip({ photos }: { photos: string[] }) {
-  // Google photo URLs expire. Drop any that 404 rather than showing a broken tile.
-  const [broken, setBroken] = useState<Set<number>>(new Set());
-  const visible = photos.filter((_, i) => !broken.has(i));
+  // Google photo URLs expire. Drop any that fail rather than showing a broken tile.
+  const [broken, setBroken] = useState<Set<string>>(() => new Set());
+  const visible = photos.filter((src) => !broken.has(src));
   if (visible.length === 0) return null;
 
   return (
-    <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-      {photos.map((src, i) =>
-        broken.has(i) ? null : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={src}
-            src={src}
-            alt=""
-            loading="lazy"
-            className="h-24 w-32 shrink-0 rounded-lg border border-ink-100 object-cover"
-            onError={() => setBroken((prev) => new Set(prev).add(i))}
-          />
-        )
+    <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+      {visible.map((src) => (
+        // Hotlinked on purpose: these images are never copied or re-hosted.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={src}
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className="h-28 w-40 shrink-0 snap-start rounded-control bg-fill object-cover"
+          onError={() => setBroken((prev) => new Set(prev).add(src))}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Review text clamped to 6 lines, with a toggle only when it actually overflows. */
+function ClampedText({ text }: { text: string }) {
+  const { t } = useTranslation();
+  const id = useId();
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || expanded) return;
+    const ro = new ResizeObserver(() => setOverflows(el.scrollHeight > el.clientHeight + 1));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [expanded]);
+
+  return (
+    <div>
+      <p ref={ref} id={id} className={cx("whitespace-pre-line text-body text-label", !expanded && "line-clamp-6")}>
+        {text}
+      </p>
+      {(overflows || expanded) && (
+        <Button variant="plain" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded((v) => !v)}>
+          {expanded ? t("reviews.readLess") : t("reviews.readMore")}
+        </Button>
       )}
     </div>
   );
 }
 
-export default function HospitalReviews({ reviews }: { reviews: Reviews }) {
+/** One review: author (linked to the profile when known), rating, date, text and its link back. */
+function ReviewCard({ review: r }: { review: LinkedReview }) {
   const { t } = useTranslation();
-  const { rating, reviewCount, summary, topReviews, photos, googleMapsUrl, fetchedAt } =
-    reviews;
+  const published = isoDateLabel(r.publishedAt);
+  return (
+    <Card as="article" className="space-y-2">
+      <p className="text-headline text-label">
+        {r.profileUrl ? (
+          <ExtLink href={r.profileUrl}>
+            <DataText>{r.author}</DataText>
+          </ExtLink>
+        ) : (
+          <DataText>{r.author}</DataText>
+        )}
+      </p>
+      {(r.rating !== null || published) && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-callout text-label-2">
+          {r.rating !== null && (
+            <>
+              <Stars rating={r.rating} />
+              <span>{t("reviews.ratingOf", { rating: r.rating })}</span>
+            </>
+          )}
+          {r.rating !== null && published && <span aria-hidden="true">·</span>}
+          {published && <span className="tabular-nums">{published}</span>}
+        </p>
+      )}
+      {r.text && <ClampedText text={r.text} />}
+      <ActionLink href={r.reviewUrl} external>
+        {t("reviews.viewReview")}
+      </ActionLink>
+    </Card>
+  );
+}
 
-  const fetchedLabel = fetchedAt
-    ? new Date(fetchedAt).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : null;
+export default function HospitalReviews({ reviews, hospitalName }: { reviews: Reviews; hospitalName: string }) {
+  const { t } = useTranslation();
+  const placeHref = placeLink(reviews, hospitalName);
+  // Nothing here could be traced back to Google: show nothing rather than an unsourced rating.
+  if (!placeHref) return null;
+
+  const { rating, reviewCount, summary, photos } = reviews;
+  const linkedReviews = reviews.topReviews.filter(isLinked);
+  const fetched = isoDateLabel(reviews.fetchedAt);
+
+  let ratingText: string | null = null;
+  if (rating !== null && reviewCount !== null) {
+    ratingText = t("hospital.ratingLine", { rating: rating.toFixed(1), n: reviewCount.toLocaleString("en-IN") });
+  } else if (rating !== null) {
+    ratingText = t("reviews.ratingOf", { rating: rating.toFixed(1) });
+  } else if (reviewCount !== null) {
+    ratingText = t("reviews.countLabel", { n: reviewCount.toLocaleString("en-IN") });
+  }
 
   return (
-    <section className="mt-8">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-bold text-ink-900">{t("reviews.heading")}</h2>
-        {googleMapsUrl && (
-          <a
-            href={googleMapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-semibold text-brand-700 hover:underline"
-          >
-            {t("reviews.viewOnGoogle")}
-          </a>
+    <section aria-labelledby="hospital-reviews" className="space-y-4">
+      <SectionHeader id="hospital-reviews" title={t("reviews.heading")} />
+
+      <div>
+        {ratingText && (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-headline tabular-nums text-label">
+            <span>{ratingText}</span>
+            {rating !== null && <Stars rating={rating} />}
+          </p>
         )}
+        <ActionLink href={placeHref} external>
+          {t("reviews.viewOnGoogle")}
+        </ActionLink>
       </div>
 
-      {rating !== null && (
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <span className="text-2xl font-bold text-ink-900">{rating.toFixed(1)}</span>
-          <Stars rating={rating} />
-          {reviewCount !== null && (
-            <span className="text-sm text-ink-500">
-              {t("reviews.countLabel", { n: reviewCount.toLocaleString("en-IN") })}
-            </span>
-          )}
-        </div>
-      )}
-
-      {summary && (
-        <div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-brand-800">
-            {t("reviews.summaryLabel")}
-          </div>
-          <p className="mt-2 text-sm leading-6 text-ink-700">{summary}</p>
-          <p className="mt-2 text-xs text-ink-500">{t("reviews.summaryDisclaimer")}</p>
-        </div>
+      {/* Its disclaimer points to "the reviews below", so it needs some to point to. */}
+      {summary && linkedReviews.length > 0 && (
+        <Callout title={t("reviews.summaryLabel")}>
+          <p className="text-body">{summary}</p>
+          <p className="text-footnote">{t("reviews.summaryDisclaimer")}</p>
+        </Callout>
       )}
 
       <PhotoStrip photos={photos} />
 
-      {topReviews.length > 0 && (
-        <ul className="mt-5 space-y-4">
-          {topReviews.map((r, i) => (
-            <li
-              key={r.reviewUrl ?? `${r.author}-${i}`}
-              className="rounded-xl border border-ink-100 bg-surface p-4"
-            >
-              <div className="flex items-center gap-3">
-                {r.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={r.avatarUrl}
-                    alt=""
-                    loading="lazy"
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-xs font-semibold text-ink-500">
-                    {r.author.slice(0, 1).toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  {r.profileUrl ? (
-                    <a
-                      href={r.profileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="truncate text-sm font-medium text-ink-900 hover:underline"
-                    >
-                      {r.author}
-                    </a>
-                  ) : (
-                    <div className="truncate text-sm font-medium text-ink-900">
-                      {r.author}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-xs text-ink-500">
-                    <Stars rating={r.rating} />
-                    {r.publishedAt && <span>{r.publishedAt}</span>}
-                  </div>
-                </div>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-ink-700">{r.text}</p>
-              {r.reviewUrl && (
-                <a
-                  href={r.reviewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-block text-xs text-brand-700 hover:underline"
-                >
-                  {t("reviews.viewReview")}
-                </a>
-              )}
+      {linkedReviews.length > 0 && (
+        <ul className="space-y-3">
+          {linkedReviews.map((r) => (
+            <li key={r.reviewUrl}>
+              <ReviewCard review={r} />
             </li>
           ))}
         </ul>
       )}
 
-      <p className="mt-4 text-xs text-ink-500">
-        {fetchedLabel
-          ? t("reviews.sourceDated", { date: fetchedLabel })
-          : t("reviews.source")}
+      <p className="text-footnote text-label-2">
+        {fetched ? t("reviews.sourceDated", { date: fetched }) : t("reviews.source")}
       </p>
     </section>
   );

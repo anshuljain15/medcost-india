@@ -1,3 +1,4 @@
+import { parseCghsAmount } from "./format";
 import type { MedicineRef, Procedure } from "./types";
 
 // Pure logic behind /check-quote and /check-bill. Nothing here decides that a
@@ -27,8 +28,9 @@ function cghsWardRate(p: Procedure, ward: Ward): number | null {
   const ref = p.cghsReference;
   if (!ref) return null;
   const raw = ward === "general" ? ref.generalWard : ward === "semiPrivate" ? ref.semiPrivateWard : ref.privateWard;
-  const n = raw === null ? NaN : Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  // Scraped strings such as "38740+GST" or "1,95,000+GST": never Number() them.
+  const n = parseCghsAmount(raw);
+  return n !== null && n > 0 ? n : null;
 }
 
 export function assessQuote(p: Procedure, quote: number, ward: Ward): QuoteAssessment {
@@ -127,6 +129,11 @@ export function medicineQuery(description: string): string {
  * NPPA ceilings exclude GST. Medicines are taxed at 5% or 12% depending on
  * the item, and a bill doesn't say which, so we allow the higher rate: a line
  * is flagged only if it is above the ceiling even with 12% GST added.
+ * Whether 12% is still the right allowance after the September 2025 GST rate
+ * changes is an open question for the data owner; until it is settled the
+ * threshold stays (docs/design-system.md §9.1), and the UI says "within the
+ * ceiling plus 12% GST" rather than "within the legal ceiling" for a price
+ * that is only within once GST is added (withinBeforeGst).
  */
 export const MAX_GST = 0.12;
 /** Rounding slack on a per-unit price computed from a line total. */
@@ -142,7 +149,17 @@ export type MedicineLineStatus = "aboveCeiling" | "withinCeiling" | "noCeiling" 
 export type MedicineLineAssessment = {
   perUnit: number;
   status: MedicineLineStatus;
+  /** The NPPA ceiling as notified, per unit, before GST. */
+  ceiling: number | null;
+  /** The ceiling with the highest GST allowance (MAX_GST) added: the flag threshold. */
   ceilingWithGst: number | null;
+  /**
+   * withinCeiling only: true when the price is within the ceiling even before
+   * GST, so it is within the limit at any GST rate. False means it is within
+   * only once 12% GST is added, and the UI must not call that plainly "within
+   * the legal ceiling": at 5% GST the limit is lower.
+   */
+  withinBeforeGst: boolean;
   /** What the same quantity would cost as the Jan Aushadhi generic. */
   janAushadhiTotal: number | null;
   possibleSaving: number | null;
@@ -150,7 +167,8 @@ export type MedicineLineAssessment = {
 
 export function assessMedicineLine(ref: MedicineRef, qty: number, amount: number): MedicineLineAssessment {
   const perUnit = amount / qty;
-  const ceilingWithGst = ref.nppaCeiling ? ref.nppaCeiling.price * (1 + MAX_GST) : null;
+  const ceiling = ref.nppaCeiling ? ref.nppaCeiling.price : null;
+  const ceilingWithGst = ceiling !== null ? ceiling * (1 + MAX_GST) : null;
 
   let status: MedicineLineStatus = "noCeiling";
   if (ceilingWithGst !== null) {
@@ -158,12 +176,13 @@ export function assessMedicineLine(ref: MedicineRef, qty: number, amount: number
     else if (perUnit > ceilingWithGst * TOLERANCE) status = "aboveCeiling";
     else status = "withinCeiling";
   }
+  const withinBeforeGst = status === "withinCeiling" && ceiling !== null && perUnit <= ceiling * TOLERANCE;
 
   const janAushadhiTotal = ref.jaPerUnit !== null ? ref.jaPerUnit * qty : null;
   const possibleSaving =
     janAushadhiTotal !== null && status !== "checkUnits" && amount > janAushadhiTotal ? amount - janAushadhiTotal : null;
 
-  return { perUnit, status, ceilingWithGst, janAushadhiTotal, possibleSaving };
+  return { perUnit, status, ceiling, ceilingWithGst, withinBeforeGst, janAushadhiTotal, possibleSaving };
 }
 
 export function roundRupees(n: number): number {

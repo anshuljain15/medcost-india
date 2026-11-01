@@ -1,22 +1,25 @@
-"use client";
-
-import { getCghsRates, getCghsSpecialties } from "@/lib/cghs";
-import { useTranslation } from "@/lib/i18n/LanguageProvider";
+import type { Metadata } from "next";
+import { getSourceDates } from "@/lib/data";
+import { CGHS_SOURCE_URL, getCghsLineItemCount, getCghsSpecialties } from "@/lib/cghs";
 import RateExplorer from "@/components/RateExplorer";
 
-export default function RatesPage() {
-  const { t } = useTranslation();
-  const rates = getCghsRates();
-  const specialties = getCghsSpecialties();
+export const metadata: Metadata = {
+  title: "Govt (CGHS) rates",
+  description:
+    "Search the Central Government Health Scheme (CGHS) Tier I rate list: what the government pays hospitals for each treatment, by room type.",
+};
 
+// Server page: only the counts and the specialty names reach the client. The
+// rate rows are fetched as static JSON (public/data/search/cghs.json) on first
+// use, so the 1 MB cghs_rates.json never enters the page bundle.
+export default function RatesPage() {
+  const specialties = getCghsSpecialties();
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
-      <p className="text-sm font-semibold uppercase tracking-wide text-brand-700">{t("rates.eyebrow")}</p>
-      <h1 className="mt-2 text-2xl font-bold text-ink-900">{t("rates.title")}</h1>
-      <p className="mt-2 max-w-3xl text-ink-700">
-        {t("rates.subtitle", { n: rates.length.toLocaleString("en-IN"), m: specialties.length })}
-      </p>
-      <RateExplorer rates={rates} specialties={specialties} />
-    </div>
+    <RateExplorer
+      lineItems={getCghsLineItemCount()}
+      specialties={specialties}
+      date={getSourceDates().cghs}
+      sourceUrl={CGHS_SOURCE_URL}
+    />
   );
 }

@@ -51,3 +51,7 @@ __pycache__/
 
 # Raw medicine source downloads (large, licensed separately; never commit)
 /medcost_fairprice/
+
+# Search indexes, regenerated from data/generated/ by scripts/build-search-index.mjs
+# on predev/prebuild (fetched through lib/staticData.ts)
+/public/data/search/

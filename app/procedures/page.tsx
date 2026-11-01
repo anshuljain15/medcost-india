@@ -1,18 +1,28 @@
-"use client";
+import type { Metadata } from "next";
+import { getAllProcedures, getSourceDates } from "@/lib/data";
+import { getCghsLineItemCount } from "@/lib/cghs";
+import ProcedureListView, { type ProcedureListRow } from "@/components/ProcedureListView";
 
-import { getAllProcedures } from "@/lib/data";
-import { useTranslation } from "@/lib/i18n/LanguageProvider";
-import ProcedureGrid from "@/components/ProcedureGrid";
+export const metadata: Metadata = {
+  title: "Treatment costs in Bangalore",
+  description:
+    "Market estimates for treatments in Bangalore from HexaHealth, with hospital-wise prices and the government (CGHS) rate where we have a confident match.",
+};
 
+// Server page: the client list gets one slim row per procedure, never the
+// hospital-wise prices or the CGHS rows behind them. The hospital count is of
+// the rows the procedure page shows (lib/data.ts drops inconsistent ones).
 export default function ProceduresPage() {
-  const { t } = useTranslation();
-  const procedures = getAllProcedures();
+  const rows: ProcedureListRow[] = getAllProcedures().map((p) => [
+    p.slug,
+    p.name,
+    p.cityLow,
+    p.cityHigh,
+    p.hospitalPrices.length,
+    p.cghsReference !== null,
+  ]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
-      <h1 className="text-2xl font-bold text-ink-900">{t("procedures.title")}</h1>
-      <p className="mt-2 max-w-2xl text-ink-700">{t("procedures.subtitle", { n: procedures.length })}</p>
-      <ProcedureGrid procedures={procedures} />
-    </div>
+    <ProcedureListView rows={rows} date={getSourceDates().hexahealth} cghsLineItems={getCghsLineItemCount()} />
   );
 }

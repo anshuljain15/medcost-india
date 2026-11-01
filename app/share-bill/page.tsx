@@ -1,18 +1,17 @@
-import { getAllHospitals, getAllProcedures } from "@/lib/data";
+import type { Metadata } from "next";
+import { getCities } from "@/lib/data";
 import ShareBillView from "@/components/ShareBillView";
 
-export const metadata = {
-  title: "Share your bill | MedCost India",
+export const metadata: Metadata = {
+  title: "Share your bill",
   description:
     "Anonymously share what a hospital quoted and what you finally paid, so the next family knows what to expect. No login, no upload.",
 };
 
 export default function ShareBillPage() {
-  // Server component: only names and slugs cross to the client, not the
-  // 1.5 MB hospital directory.
-  const procedures = getAllProcedures()
-    .map((p) => ({ slug: p.slug, name: p.name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const hospitals = getAllHospitals().map((h) => ({ slug: h.slug, name: h.name, city: h.city }));
-  return <ShareBillView procedures={procedures} hospitals={hospitals} />;
+  // Server component: only the six city names cross to the client. The
+  // procedure list and the 2,684-row hospital index are fetched from
+  // public/data/search when the screen that needs them is shown, which keeps
+  // out/share-bill.html small.
+  return <ShareBillView cities={getCities()} />;
 }

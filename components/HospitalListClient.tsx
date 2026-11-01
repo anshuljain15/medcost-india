@@ -1,69 +1,83 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import type { Hospital } from "@/lib/types";
+import { Disclosure } from "@/components/ui/Disclosure";
+import { InsetGroup } from "@/components/ui/InsetGroup";
+import { ListRow } from "@/components/ui/ListRow";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageNotes } from "@/components/ui/PageNotes";
+import { PageShell } from "@/components/ui/PageShell";
+import { SourceNote } from "@/components/ui/SourceNote";
+import UniversalSearch from "@/components/search/UniversalSearch";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 
-type Props = {
-  hospitals: Hospital[];
-  citySlug: string;
+/** One city on the /hospitals hub, counted on the server. */
+export type CitySummary = {
+  slug: string;
+  /** Display name from the directory ("Bangalore"); shown through cityName() (cities.* in translations). */
+  label: string;
+  count: number;
+  /** Bangalore only: hospitals there can carry treatment prices. */
+  priced: boolean;
 };
 
-export default function HospitalListClient({ hospitals, citySlug }: Props) {
-  const { t } = useTranslation();
-  const [query, setQuery] = useState("");
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return hospitals;
-    return hospitals.filter(
-      (h) =>
-        h.name.toLowerCase().includes(q) ||
-        (h.address ?? "").toLowerCase().includes(q) ||
-        (h.pincode ?? "").includes(q)
-    );
-  }, [hospitals, query]);
+/**
+ * Client view for /hospitals (the server page passes only the six city
+ * counts and the directory date). Hospital-name search uses the static
+ * hospital index, fetched on the first focus of the field, so no hospital
+ * rows ship with this page.
+ */
+export default function HospitalListClient({
+  cities,
+  total,
+  directoryDate,
+}: {
+  cities: CitySummary[];
+  total: number;
+  directoryDate: string | null;
+}) {
+  const { t, cityName } = useTranslation();
 
   return (
-    <div className="flex h-[520px] flex-col rounded-xl border border-ink-100 bg-surface">
-      <div className="border-b border-ink-100 p-3">
-        <input
-          type="text"
-          placeholder={t("city.searchPlaceholder")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded-md border border-ink-300 bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-500"
-        />
-        <p className="mt-1 text-xs text-ink-500">
-          {t("city.shownCount", { shown: filtered.length, total: hospitals.length })}
-        </p>
+    <PageShell>
+      <PageHeader
+        title={t("hospitals.title")}
+        lead={t("hospitals.lead", { n: total.toLocaleString("en-IN"), c: cities.length })}
+      >
+        {/* -mx-4 lines the summary text up with the H1 (the summary has px-4). */}
+        <div className="-mx-4">
+          <Disclosure variant="inline" summary={t("hospitals.whatIsList")}>
+            <p className="max-w-[65ch]">{t("hospitals.whatIsListBody")}</p>
+          </Disclosure>
+        </div>
+      </PageHeader>
+
+      <div className="space-y-10 md:space-y-16">
+        <UniversalSearch variant="hero" scope="hospitals" label={t("hospitals.searchLabel")} />
+
+        <InsetGroup heading={t("hospitals.chooseCity")} headingId="choose-city">
+          {cities.map((c) => (
+            <ListRow
+              key={c.slug}
+              href={`/hospitals/${c.slug}`}
+              // A city page carries its whole hospital list (up to ~200 KB
+              // gzipped), so it is prefetched on intent, not when the row scrolls in.
+              prefetch="intent"
+              title={cityName(c.label)}
+              subtitle={c.priced ? t("hospitals.pricesAvailable") : undefined}
+              trailing={
+                <>
+                  <span aria-hidden="true">{c.count.toLocaleString("en-IN")}</span>
+                  <span className="sr-only">{t("hospitals.count", { n: c.count.toLocaleString("en-IN") })}</span>
+                </>
+              }
+            />
+          ))}
+        </InsetGroup>
       </div>
-      <ul className="flex-1 divide-y divide-ink-100 overflow-y-auto">
-        {filtered.map((h) => (
-          <li key={h.id}>
-            <Link
-              href={`/hospitals/${citySlug}/${h.slug}`}
-              className="block px-4 py-3 hover:bg-brand-50"
-            >
-              <div className="text-sm font-medium text-ink-900">{h.name}</div>
-              <div className="text-xs text-ink-500">{h.address}</div>
-              <div className="mt-1 flex gap-2 text-xs">
-                {h.networkType && (
-                  <span className="rounded bg-brand-50 px-1.5 py-0.5 text-brand-700">
-                    {h.networkType}
-                  </span>
-                )}
-                {h.bedCount && <span className="text-ink-500">{h.bedCount} beds</span>}
-                {h.pincode && <span className="text-ink-500">PIN {h.pincode}</span>}
-              </div>
-            </Link>
-          </li>
-        ))}
-        {filtered.length === 0 && (
-          <li className="px-4 py-6 text-center text-sm text-ink-500">{t("city.noMatch")}</li>
-        )}
-      </ul>
-    </div>
+
+      <PageNotes anchor="hospitals">
+        <SourceNote compact source={t("source.directory")} date={directoryDate} anchor="hospitals" />
+      </PageNotes>
+    </PageShell>
   );
 }

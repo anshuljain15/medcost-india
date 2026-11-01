@@ -1,154 +1,288 @@
 "use client";
 
-import Link from "next/link";
-import type { Hospital, HospitalReviews, JanAushadhiKendra, Procedure } from "@/lib/types";
-import { formatINR } from "@/lib/format";
+import type { Hospital, HospitalReviews, JanAushadhiKendra } from "@/lib/types";
+import { cleanCode, cleanCount, formatINR, telHref } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
-import HospitalReviewsSection from "@/components/HospitalReviews";
+import { ActionLink } from "@/components/ui/ActionLink";
+import { ButtonLink } from "@/components/ui/Button";
+import { Callout } from "@/components/ui/Callout";
+import { DataText } from "@/components/ui/DataText";
+import { Disclosure } from "@/components/ui/Disclosure";
+import { Icon } from "@/components/ui/Icon";
+import { InsetGroup } from "@/components/ui/InsetGroup";
+import { ListRow } from "@/components/ui/ListRow";
+import { MoneyRange } from "@/components/ui/Money";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageNotes } from "@/components/ui/PageNotes";
+import { PageShell } from "@/components/ui/PageShell";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { SourceNote } from "@/components/ui/SourceNote";
 import { KendraRow } from "@/components/KendraFinder";
+import HospitalReviewsSection from "@/components/HospitalReviews";
 
-type NearbyKendraSlice = { samePin: JanAushadhiKendra[]; samePostalArea: JanAushadhiKendra[] };
+/** This hospital's own HexaHealth price for one treatment, sliced on the server. */
+export type HospitalPriceRow = {
+  slug: string;
+  name: string;
+  min: number | null;
+  max: number | null;
+  /** HexaHealth's average; rows whose average falls outside their own min–max never get here (lib/data.ts). */
+  avg: number | null;
+  /** The HexaHealth page this price was read from. */
+  sourceUrl: string;
+};
+
+type NearbyKendras = { samePin: JanAushadhiKendra[]; samePostalArea: JanAushadhiKendra[] };
+type T = (key: string, vars?: Record<string, string | number>) => string;
+
+/** A phone field with fewer than 8 digits is junk ("0-0", "-91", "-DHS/NH/1262"): no row, no button. */
+function usablePhone(phone: string | null): string | null {
+  if (!phone) return null;
+  return phone.replace(/\D/g, "").length >= 8 ? phone.trim() : null;
+}
+
+function directionsHref(h: Hospital): string {
+  const query =
+    h.lat != null && h.lon != null
+      ? `${h.lat},${h.lon}`
+      : [h.name, h.address, h.pincode].filter(Boolean).join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
 
 export default function HospitalDetailView({
   hospital,
   citySlug,
-  procedures,
+  prices,
   reviews,
   kendras,
+  dates,
 }: {
   hospital: Hospital;
   citySlug: string;
-  procedures: Procedure[];
+  prices: HospitalPriceRow[];
   reviews: HospitalReviews | null;
-  kendras: NearbyKendraSlice;
+  kendras: NearbyKendras;
+  dates: { hexahealth: string | null; directory: string | null };
 }) {
-  const { t } = useTranslation();
+  const { t, cityName } = useTranslation();
+  const tel = telHref(hospital.phone);
+  const city = cityName(hospital.city);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <Link href={`/hospitals/${citySlug}`} className="text-sm text-brand-700 hover:underline">
-        {t("hospital.backTo", { city: hospital.city })}
-      </Link>
-      <h1 className="mt-3 text-2xl font-bold text-ink-900">{hospital.name}</h1>
-      <p className="mt-1 text-ink-700">{hospital.address}</p>
-
-      <dl className="mt-6 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
-        <Field label={t("hospital.networkType")} value={hospital.networkType} />
-        <Field label={t("hospital.bedCount")} value={hospital.bedCount} />
-        <Field label={t("hospital.icuBeds")} value={hospital.icuBeds} />
-        <Field label={t("hospital.phone")} value={hospital.phone} />
-        <Field label={t("hospital.pincode")} value={hospital.pincode} />
-        <Field label={t("hospital.rohiniCode")} value={hospital.rohiniCode} />
-      </dl>
-
-      {procedures.length > 0 ? (
-        <section className="mt-8">
-          <h2 className="text-lg font-bold text-ink-900">{t("hospital.proceduresHeading")}</h2>
-          <div className="mt-3 overflow-x-auto rounded-xl border border-ink-100">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-ink-50 text-xs uppercase tracking-wide text-ink-500">
-                <tr>
-                  <th className="px-4 py-3">{t("hospital.procedureColumn")}</th>
-                  <th className="px-4 py-3">{t("procedure.colMin")}</th>
-                  <th className="px-4 py-3">{t("procedure.colAvg")}</th>
-                  <th className="px-4 py-3">{t("procedure.colMax")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink-100">
-                {procedures.map((p) => {
-                  const hp = p.hospitalPrices.find((x) => x.hospitalSlug === hospital.slug)!;
-                  return (
-                    <tr key={p.slug}>
-                      <td className="px-4 py-3 font-medium text-ink-900">
-                        <Link href={`/procedures/${p.slug}`} className="text-brand-700 hover:underline">
-                          {p.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3">{formatINR(hp.min)}</td>
-                      <td className="px-4 py-3">{formatINR(hp.avg)}</td>
-                      <td className="px-4 py-3">{formatINR(hp.max)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : (
-        <div className="mt-8 rounded-xl border border-dashed border-ink-300 p-4 text-sm text-ink-500">
-          {t("hospital.noProceduresPre")}{" "}
-          <Link href="/procedures" className="underline">
-            {t("hospital.allProcedures")}
-          </Link>{" "}
-          {t("hospital.noProceduresPost")}
+    <PageShell>
+      <PageHeader
+        // The city page carries its whole hospital list: prefetch it on intent only.
+        back={{ href: `/hospitals/${citySlug}`, label: t("hospital.backTo", { city }), prefetch: "intent" }}
+        title={<DataText>{hospital.name}</DataText>}
+        meta={hospital.address ? <DataText>{hospital.address}</DataText> : undefined}
+      >
+        <div className="flex flex-wrap gap-2">
+          {/* No Call button for a number we can't dial correctly: a wrong number is worse than none. */}
+          {tel && (
+            <ButtonLink variant="tonal" icon="phone" href={tel}>
+              {t("common.call")}
+            </ButtonLink>
+          )}
+          <ButtonLink variant="tonal" icon="directions" href={directionsHref(hospital)} external>
+            {t("common.directions")}
+          </ButtonLink>
         </div>
-      )}
+      </PageHeader>
 
-      {reviews && <HospitalReviewsSection reviews={reviews} />}
+      <div className="space-y-10 md:space-y-16">
+        <AboutGroup hospital={hospital} t={t} />
+        <TreatmentPrices
+          citySlug={citySlug}
+          cityLabel={city}
+          prices={prices}
+          hexahealthDate={dates.hexahealth}
+          t={t}
+        />
+        {reviews && <HospitalReviewsSection reviews={reviews} hospitalName={hospital.name} />}
+        <NearbyKendrasSection pincode={hospital.pincode} kendras={kendras} t={t} />
+        <InsetGroup>
+          <ListRow href="/share-bill" leading="users" title={t("hospital.shareHere")} />
+        </InsetGroup>
+      </div>
 
-      <NearbyKendras pincode={hospital.pincode} kendras={kendras} />
-    </div>
+      <PageNotes anchor="hospitals">
+        <SourceNote compact source={t("source.directory")} date={dates.directory} anchor="hospitals" />
+      </PageNotes>
+    </PageShell>
   );
 }
 
-function NearbyKendras({ pincode, kendras }: { pincode: string | null; kendras: NearbyKendraSlice }) {
-  const { t } = useTranslation();
-  const none = kendras.samePin.length === 0 && kendras.samePostalArea.length === 0;
+/** Rows only for values we have; never a "—". */
+function AboutGroup({ hospital, t }: { hospital: Hospital; t: T }) {
+  const beds = cleanCount(hospital.bedCount);
+  const icu = cleanCount(hospital.icuBeds);
+  const nabh = hospital.nabhFlag?.trim().toUpperCase() === "Y";
+  const phone = usablePhone(hospital.phone);
+  const rohini = cleanCode(hospital.rohiniCode);
+  const network = hospital.networkType?.trim() || null;
+  const hasRows = beds !== null || icu !== null || nabh || Boolean(hospital.pincode) || phone !== null;
+  const hasInsurance = network !== null || rohini !== null;
+  if (!hasRows && !hasInsurance) return null;
 
   return (
-    <section className="mt-10">
-      <h2 className="text-lg font-bold text-ink-900">{t("hospital.kendrasHeading")}</h2>
-      {!pincode ? (
-        <p className="mt-2 text-sm text-ink-500">{t("hospital.kendrasNoPin")}</p>
-      ) : none ? (
-        <p className="mt-2 text-sm text-ink-500">{t("hospital.kendrasNone")}</p>
-      ) : (
-        <>
-          {kendras.samePin.length > 0 && (
-            <>
-              <h3 className="mt-3 text-xs uppercase tracking-wide text-ink-500">
-                {t("hospital.kendrasSamePin", { pin: pincode })}
-              </h3>
-              <ul className="mt-2 divide-y divide-ink-100 rounded-xl border border-ink-100">
-                {kendras.samePin.map((k) => (
-                  <KendraRow key={k.code} kendra={k} samePin={false} samePinLabel="" />
-                ))}
-              </ul>
-            </>
-          )}
-          {kendras.samePostalArea.length > 0 && (
-            <>
-              <h3 className="mt-4 text-xs uppercase tracking-wide text-ink-500">
-                {t("hospital.kendrasSameArea", { area: pincode.slice(0, 3) })}
-              </h3>
-              <ul className="mt-2 divide-y divide-ink-100 rounded-xl border border-ink-100">
-                {kendras.samePostalArea.map((k) => (
-                  <KendraRow key={k.code} kendra={k} samePin={false} samePinLabel="" />
-                ))}
-              </ul>
-            </>
-          )}
-        </>
+    <InsetGroup heading={t("hospital.about")} headingId="about-hospital">
+      {beds !== null && <ListRow title={t("hospital.bedCount")} trailing={beds.toLocaleString("en-IN")} />}
+      {icu !== null && <ListRow title={t("hospital.icuBeds")} trailing={icu.toLocaleString("en-IN")} />}
+      {nabh && (
+        <ListRow
+          title={t("hospital.nabh")}
+          trailing={<Icon name="check-circle" className="size-5 text-label-2" />}
+        />
       )}
-      <div className="mt-3 flex flex-wrap gap-4 text-sm">
-        {pincode && (
-          <Link href={`/kendras?pin=${pincode}`} className="font-medium text-brand-700 hover:underline">
-            {t("hospital.kendrasFindMore")} →
-          </Link>
-        )}
-        <Link href="/medicines" className="font-medium text-brand-700 hover:underline">
-          {t("hospital.kendrasMedicines")} →
-        </Link>
+      {hospital.pincode && <ListRow title={t("hospital.pincode")} trailing={hospital.pincode} />}
+      {phone && <ListRow layout="stack" title={t("hospital.phone")} trailing={<DataText>{phone}</DataText>} />}
+      {hasInsurance && (
+        // -mt-px lays the disclosure's top hairline over the last row's separator.
+        <li className="-mt-px">
+          <Disclosure variant="inline" summary={t("hospital.insuranceDetails")}>
+            <dl className="space-y-3">
+              {network && (
+                <div>
+                  <dt className="text-callout text-label-2">{t("hospital.networkType")}</dt>
+                  <dd className="text-body text-label">
+                    <DataText>{network}</DataText>
+                  </dd>
+                </div>
+              )}
+              {rohini && (
+                <div>
+                  <dt className="text-callout text-label-2">{t("hospital.rohiniCode")}</dt>
+                  <dd className="text-body tabular-nums text-label">
+                    <DataText>{rohini}</DataText>
+                  </dd>
+                  <dd className="mt-1 text-footnote text-label-2">{t("hospital.rohiniHint")}</dd>
+                </div>
+              )}
+            </dl>
+          </Disclosure>
+        </li>
+      )}
+    </InsetGroup>
+  );
+}
+
+function TreatmentPrices({
+  citySlug,
+  cityLabel,
+  prices,
+  hexahealthDate,
+  t,
+}: {
+  citySlug: string;
+  cityLabel: string;
+  prices: HospitalPriceRow[];
+  hexahealthDate: string | null;
+  t: T;
+}) {
+  // The Bangalore gate (also applied on the server): other cities have no
+  // prices at all, so they get no link to Bangalore estimates either.
+  if (citySlug !== "bangalore") {
+    return (
+      <section aria-labelledby="hospital-prices">
+        <SectionHeader id="hospital-prices" title={t("hospital.proceduresHeading")} />
+        <Callout>{t("hospital.noPricesCity", { city: cityLabel })}</Callout>
+      </section>
+    );
+  }
+
+  if (prices.length === 0) {
+    return (
+      <section aria-labelledby="hospital-prices">
+        <SectionHeader id="hospital-prices" title={t("hospital.proceduresHeading")} />
+        <Callout>{t("hospital.noPricesHere")}</Callout>
+        <div className="mt-2">
+          <ActionLink href="/procedures">{t("hospital.seeUsual")}</ActionLink>
+        </div>
+      </section>
+    );
+  }
+
+  const quoteHref = prices.length === 1 ? `/check-quote#${prices[0].slug}` : "/check-quote";
+  // One treatment links its own HexaHealth page; several link the site, as /procedures does.
+  const sourceHref = prices.length === 1 ? prices[0].sourceUrl : new URL(prices[0].sourceUrl).origin;
+  return (
+    <section aria-labelledby="hospital-prices">
+      <SectionHeader id="hospital-prices" title={t("hospital.proceduresHeading")} />
+      <InsetGroup>
+        {prices.map((p) => (
+          <ListRow
+            key={p.slug}
+            href={`/procedures/${p.slug}`}
+            layout="stack"
+            title={<DataText>{p.name}</DataText>}
+            meta={p.avg !== null ? t("procedure.typical", { avg: formatINR(p.avg) }) : undefined}
+            trailing={<MoneyRange low={p.min} high={p.max} />}
+          />
+        ))}
+      </InsetGroup>
+      <SourceNote
+        source="HexaHealth"
+        href={sourceHref}
+        qualifier={t("source.marketQualifier")}
+        date={hexahealthDate}
+        anchor="market-prices"
+      />
+      <div className="mt-2">
+        <ActionLink href={quoteHref}>{t("hospital.checkQuote")}</ActionLink>
       </div>
     </section>
   );
 }
 
-function Field({ label, value }: { label: string; value: string | null }) {
+function NearbyKendrasSection({ pincode, kendras, t }: { pincode: string | null; kendras: NearbyKendras; t: T }) {
+  const none = kendras.samePin.length === 0 && kendras.samePostalArea.length === 0;
+
+  return (
+    <section aria-labelledby="hospital-kendras">
+      <SectionHeader id="hospital-kendras" title={t("hospital.kendrasHeading")} />
+      {!pincode ? (
+        <p className="max-w-[65ch] text-body text-label-2">{t("hospital.kendrasNoPin")}</p>
+      ) : none ? (
+        <p className="max-w-[65ch] text-body text-label-2">{t("hospital.kendrasNone")}</p>
+      ) : (
+        <div className="space-y-6">
+          {kendras.samePin.length > 0 && (
+            <KendraGroup id="kendras-same-pin" heading={t("hospital.kendrasSamePin", { pin: pincode })} rows={kendras.samePin} />
+          )}
+          {kendras.samePostalArea.length > 0 && (
+            <KendraGroup
+              id="kendras-same-area"
+              heading={t("hospital.kendrasSameArea", { area: pincode.slice(0, 3) })}
+              rows={kendras.samePostalArea}
+            />
+          )}
+        </div>
+      )}
+      <div className="mt-3 flex flex-col items-start">
+        {pincode && <ActionLink href={`/kendras?pin=${pincode}`}>{t("hospital.kendrasFindMore")}</ActionLink>}
+        <ActionLink href="/medicines">{t("hospital.kendrasMedicines")}</ActionLink>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * InsetGroup's own heading is an h2; these sit under the section's h2, so the
+ * recipe's heading is repeated here as an h3 above a heading-less InsetGroup.
+ * Rows are the /kendras KendraRow itself; the group heading already says
+ * "same PIN", so no row carries the badge.
+ */
+function KendraGroup({ id, heading, rows }: { id: string; heading: string; rows: JanAushadhiKendra[] }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-wide text-ink-500">{label}</dt>
-      <dd className="mt-0.5 text-ink-900">{value ?? "—"}</dd>
+      <h3 id={id} className="px-4 pb-2 text-footnote font-semibold text-label-2">
+        {heading}
+      </h3>
+      <InsetGroup>
+        {rows.map((k) => (
+          <KendraRow key={k.code} kendra={k} samePin={false} />
+        ))}
+      </InsetGroup>
     </div>
   );
 }
