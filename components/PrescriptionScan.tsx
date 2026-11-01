@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { searchMedicines } from "@/lib/medicineShards";
 import { readImageText } from "@/lib/ocr";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
+import { Callout, ChipRow, ChoiceChip, DataText, PhotoInput, PrivacyNote, ProgressBar, useAnnounce } from "@/components/ui";
 
 // Reads a photo of a strip, bill or printed prescription in the browser
 // (lib/ocr.ts -- the image is never uploaded).
@@ -34,79 +35,71 @@ function candidates(text: string): string[] {
   return [...out].slice(0, MAX_CANDIDATES);
 }
 
-export default function PrescriptionScan({ onPick }: { onPick: (q: string) => void }) {
+/**
+ * The photo controls under the medicine search field: tonal PhotoInput (no
+ * `capture`, so Android offers Camera or Gallery), the privacy line right
+ * beside it, OCR progress, then the readable words as toggle chips.
+ * `selected` is the current query, so the chip it came from shows as pressed.
+ */
+export default function PrescriptionScan({ onPick, selected }: { onPick: (q: string) => void; selected?: string }) {
   const { t } = useTranslation();
+  const announce = useAnnounce();
   const [state, setState] = useState<State>({ kind: "idle" });
-  const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(file: File) {
     setState({ kind: "loading" });
     try {
       const text = await readImageText(file, (pct) => setState({ kind: "reading", pct }));
-
       const words: string[] = [];
       for (const c of candidates(text)) {
         const hits = await searchMedicines(c, 1);
         if (hits.length > 0) words.push(c);
       }
       setState({ kind: "done", words });
+      announce(words.length > 0 ? t("medicines.scan.found") : t("medicines.scan.nothing"));
     } catch {
       setState({ kind: "failed" });
-    } finally {
-      if (inputRef.current) inputRef.current.value = "";
+      announce(t("medicines.scan.failed"));
     }
   }
 
   const busy = state.kind === "loading" || state.kind === "reading";
+  const pct = state.kind === "reading" ? state.pct : 0;
 
   return (
-    <div className="mt-6 rounded-xl border border-ink-100 bg-ink-50 p-4">
-      <label className={`inline-flex cursor-pointer items-center gap-2 rounded-full bg-surface px-4 py-2 text-sm font-medium text-brand-700 shadow-sm ${busy ? "pointer-events-none opacity-60" : "hover:bg-brand-50"}`}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden>
-          <path d="M3 7h3l2-3h8l2 3h3v13H3z" />
-          <circle cx="12" cy="13" r="4" />
-        </svg>
-        {t("medicines.scan.button")}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="sr-only"
-          disabled={busy}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleFile(f);
-          }}
-        />
-      </label>
-      <p className="mt-2 text-xs text-ink-500">
-        {t("medicines.scan.privacy")} {t("medicines.scan.handwriting")}
-      </p>
+    <div className="space-y-2">
+      <PhotoInput label={t("medicines.scan.button")} variant="tonal" onFile={handleFile} disabled={busy} />
+      <PrivacyNote>{t("medicines.scan.privacy")}</PrivacyNote>
+      <p className="text-footnote text-label-2">{t("medicines.scan.handwriting")}</p>
 
-      {state.kind === "loading" && <p className="mt-3 text-sm text-ink-700">{t("medicines.scan.loading")}</p>}
-      {state.kind === "reading" && (
-        <p className="mt-3 text-sm text-ink-700">{t("medicines.scan.reading", { pct: state.pct })}</p>
+      {busy && (
+        <ProgressBar
+          value={pct}
+          label={t("medicines.scan.button")}
+          // Whole tens, so a screen reader hears a few updates rather than every percent.
+          liveText={
+            state.kind === "loading"
+              ? t("medicines.scan.loading")
+              : t("medicines.scan.reading", { pct: Math.floor(pct / 10) * 10 })
+          }
+        />
       )}
-      {state.kind === "failed" && <p className="mt-3 text-sm text-ink-700">{t("medicines.scan.failed")}</p>}
+
+      {state.kind === "failed" && <Callout>{t("medicines.scan.failed")}</Callout>}
+
       {state.kind === "done" &&
         (state.words.length === 0 ? (
-          <p className="mt-3 text-sm text-ink-700">{t("medicines.scan.nothing")}</p>
+          <Callout>{t("medicines.scan.nothing")}</Callout>
         ) : (
-          <div className="mt-3">
-            <p className="text-sm text-ink-700">{t("medicines.scan.found")}</p>
-            <div className="mt-2 flex flex-wrap gap-2">
+          <div className="space-y-2 pt-2">
+            <p className="text-callout text-label">{t("medicines.scan.found")}</p>
+            <ChipRow wrap label={t("medicines.scan.found")}>
               {state.words.map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  onClick={() => onPick(w)}
-                  className="rounded-full border border-brand-200 bg-surface px-3 py-1 text-sm text-brand-800 hover:bg-brand-50"
-                >
-                  {w}
-                </button>
+                <ChoiceChip key={w} type="toggle" checked={selected === w} onChange={() => onPick(w)}>
+                  <DataText>{w}</DataText>
+                </ChoiceChip>
               ))}
-            </div>
+            </ChipRow>
           </div>
         ))}
     </div>

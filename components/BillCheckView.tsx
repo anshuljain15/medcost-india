@@ -1,24 +1,51 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import type { MedicineRef } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MedicineRef, MedicinesMeta } from "@/lib/types";
 import {
   assessMedicineLine,
   medicineQuery,
   parseBillText,
   type MedicineLineAssessment,
+  type MedicineLineStatus,
 } from "@/lib/billCheck";
 import { MIN_QUERY_LENGTH, searchMedicines, type MedicineHit } from "@/lib/medicineShards";
 import { readImageText } from "@/lib/ocr";
-import { formatINR, formatINRUnit } from "@/lib/format";
+import { formatINR, formatINRUnit, formatISODate } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 import ShareButton from "@/components/ShareButton";
+import {
+  Badge,
+  Button,
+  Callout,
+  Card,
+  ChipRow,
+  ChoiceChip,
+  DataText,
+  Disclosure,
+  ExtLink,
+  IconButton,
+  InlineLink,
+  Money,
+  PageHeader,
+  PageNotes,
+  PageShell,
+  PhotoInput,
+  PrivacyNote,
+  ProgressBar,
+  SourceNote,
+  StatTile,
+  StatusLine,
+  TextField,
+  useAnnounce,
+  type IconName,
+} from "@/components/ui";
 
 // The person confirms every row. OCR only pre-fills the description, quantity
 // and amount, and medicine matches are offered as chips to pick -- never
 // chosen automatically, for the same reason PrescriptionScan doesn't search
 // on its own: a misread line must become a wrong suggestion, not a wrong flag.
+// Nothing typed or photographed leaves the browser.
 
 type Row = {
   id: number;
@@ -26,53 +53,134 @@ type Row = {
   qty: string;
   amount: string;
   match: MedicineHit | null;
+  /** Collapsed to a one-line summary after a pick that can be checked. */
+  collapsed: boolean;
 };
+
+type Where = "top" | "bottom";
 
 type ScanState =
   | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "reading"; pct: number }
-  | { kind: "done"; found: number }
-  | { kind: "failed" };
+  | { kind: "loading"; at: Where }
+  | { kind: "reading"; pct: number; at: Where }
+  | { kind: "done"; found: number; at: Where }
+  | { kind: "failed"; at: Where };
+
+type Line = "above" | "within" | "noCeiling" | "checkUnits";
+
+const LINE: Record<MedicineLineStatus, Line> = {
+  aboveCeiling: "above",
+  withinCeiling: "within",
+  noCeiling: "noCeiling",
+  checkUnits: "checkUnits",
+};
+
+const LABEL_KEY: Record<Line | "pick", string> = {
+  above: "bill.label.above",
+  within: "bill.label.within",
+  noCeiling: "bill.label.noCeiling",
+  checkUnits: "bill.label.checkUnits",
+  pick: "bill.label.pick",
+};
+
+const BADGE_ICON: Record<Line, IconName> = {
+  above: "alert",
+  within: "check-circle",
+  noCeiling: "info",
+  checkUnits: "info",
+};
 
 let nextId = 1;
-const emptyRow = (): Row => ({ id: nextId++, description: "", qty: "", amount: "", match: null });
+const newRow = (): Row => ({ id: nextId++, description: "", qty: "", amount: "", match: null, collapsed: false });
+const rowBase = (id: number) => `bill-line-${id}`;
 
 function num(s: string): number | null {
   const n = Number(s.replace(/,/g, ""));
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export default function BillCheckView({ refs, nppaUrl }: { refs: MedicineRef[]; nppaUrl: string }) {
+/** Digits and one decimal point (bills carry paise: "180.50"). */
+function decimalInput(v: string): string {
+  const clean = v.replace(/[^\d.]/g, "");
+  const dot = clean.indexOf(".");
+  return dot < 0 ? clean : clean.slice(0, dot + 1) + clean.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+}
+
+/** StatTile labels are sentence fragments ("medicine lines checked"); start them with a capital. */
+function sentenceStart(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+type T = (path: string, vars?: Record<string, string | number>) => string;
+
+function statusSentence(t: T, a: MedicineLineAssessment, unit: string): string {
+  const per = formatINRUnit(a.perUnit);
+  const ceiling = formatINRUnit(a.ceilingWithGst);
+  switch (a.status) {
+    case "aboveCeiling":
+      return t("bill.status.aboveCeiling", { per, unit, ceiling });
+    case "withinCeiling":
+      return t("bill.status.withinCeiling", { per, unit, ceiling });
+    case "noCeiling":
+      return t("bill.status.noCeiling", { per, unit });
+    case "checkUnits":
+      return t("bill.status.checkUnits", { per, unit, ceiling });
+  }
+}
+
+export default function BillCheckView({ refs, meta }: { refs: MedicineRef[]; meta: MedicinesMeta }) {
   const { t } = useTranslation();
+  const announce = useAnnounce();
   const refsBySlug = useMemo(() => new Map(refs.map((r) => [r.slug, r])), [refs]);
-  const [rows, setRows] = useState<Row[]>(() => [emptyRow()]);
+  const [rows, setRows] = useState<Row[]>([]);
   const [scan, setScan] = useState<ScanState>({ kind: "idle" });
-  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus to move after the next render (new line, collapsed line, removed line).
+  const focusId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusId.current) return;
+    const el = document.getElementById(focusId.current);
+    focusId.current = null;
+    el?.focus();
+  });
+  const focusAfterRender = useCallback((id: string) => {
+    focusId.current = id;
+  }, []);
 
   function update(id: number, patch: Partial<Row>) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
-  async function handleFile(file: File) {
-    setScan({ kind: "loading" });
+  function addLine() {
+    const row = newRow();
+    setRows((rs) => [...rs, row]);
+    focusAfterRender(`${rowBase(row.id)}-item`);
+  }
+
+  function removeLine(id: number) {
+    const left = rows.filter((r) => r.id !== id);
+    setRows(left);
+    focusAfterRender(left.length > 0 ? "bill-add-line" : "bill-type-instead");
+  }
+
+  async function handleFile(file: File, at: Where) {
+    setScan({ kind: "loading", at });
     try {
-      const text = await readImageText(file, (pct) => setScan({ kind: "reading", pct }));
-      const lines = parseBillText(text);
-      const parsed = lines.map((l) => ({
-        id: nextId++,
+      const text = await readImageText(file, (pct) => setScan({ kind: "reading", pct, at }));
+      const parsed: Row[] = parseBillText(text).map((l) => ({
+        ...newRow(),
         description: l.description,
         qty: l.qty !== null ? String(l.qty) : "",
         amount: String(l.amount),
-        match: null,
       }));
-      // Keep anything already typed; drop the untouched blank starter row.
-      setRows((rs) => [...rs.filter((r) => r.description || r.amount), ...parsed]);
-      setScan({ kind: "done", found: parsed.length });
+      // Keep anything already typed; drop untouched blank lines.
+      setRows((rs) => [...rs.filter((r) => r.description || r.qty || r.amount || r.match), ...parsed]);
+      setScan({ kind: "done", found: parsed.length, at });
+      announce(parsed.length > 0 ? t("bill.scanFound", { n: parsed.length }) : t("bill.scanNothing"));
+      if (parsed.length > 0) focusAfterRender(`${rowBase(parsed[0].id)}-heading`);
     } catch {
-      setScan({ kind: "failed" });
-    } finally {
-      if (inputRef.current) inputRef.current.value = "";
+      setScan({ kind: "failed", at });
+      announce(t("bill.scanFailed"));
     }
   }
 
@@ -86,145 +194,169 @@ export default function BillCheckView({ refs, nppaUrl }: { refs: MedicineRef[]; 
     .filter((x): x is { row: Row; ref: MedicineRef; a: MedicineLineAssessment } => x !== null);
 
   const above = checked.filter((c) => c.a.status === "aboveCeiling").length;
-  const saving = checked.reduce((s, c) => s + (c.a.possibleSaving ?? 0), 0);
+  const saving = Math.round(checked.reduce((s, c) => s + (c.a.possibleSaving ?? 0), 0));
   const busy = scan.kind === "loading" || scan.kind === "reading";
 
-  return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <div className="text-xs font-semibold uppercase tracking-wide text-brand-700">{t("bill.eyebrow")}</div>
-      <h1 className="mt-2 text-3xl font-bold text-ink-900">{t("bill.title")}</h1>
-      <p className="mt-3 max-w-2xl text-ink-700">{t("bill.subtitle")}</p>
+  const scanStatus =
+    scan.kind === "loading" || scan.kind === "reading" ? (
+      <ProgressBar
+        value={scan.kind === "reading" ? scan.pct : 0}
+        label={t("bill.addPhoto")}
+        // Whole tens, so a screen reader hears a few updates rather than every percent.
+        liveText={
+          scan.kind === "loading"
+            ? t("medicines.scan.loading")
+            : t("medicines.scan.reading", { pct: Math.floor(scan.pct / 10) * 10 })
+        }
+      />
+    ) : scan.kind === "failed" ? (
+      <Callout>{t("bill.scanFailed")}</Callout>
+    ) : scan.kind === "done" ? (
+      <Callout>{scan.found > 0 ? t("bill.scanFound", { n: scan.found }) : t("bill.scanNothing")}</Callout>
+    ) : null;
+  const scanAt = scan.kind === "idle" ? null : scan.at;
 
-      <div className="mt-8 rounded-2xl border border-ink-100 bg-ink-50 p-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <label
-            className={`inline-flex cursor-pointer items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm ${
-              busy ? "pointer-events-none opacity-60" : "hover:bg-brand-700"
-            }`}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden>
-              <path d="M3 7h3l2-3h8l2 3h3v13H3z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-            {t("bill.scanButton")}
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="sr-only"
-              disabled={busy}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
-              }}
-            />
-          </label>
-          <span className="text-sm text-ink-500">{t("bill.or")}</span>
-          <button
-            type="button"
-            onClick={() => setRows((rs) => [...rs, emptyRow()])}
-            className="rounded-full border border-ink-300 bg-surface px-4 py-2 text-sm font-medium text-ink-700 hover:border-brand-500"
-          >
-            {t("bill.addLine")}
-          </button>
-        </div>
-        <p className="mt-3 text-xs text-ink-500">{t("bill.privacy")}</p>
-        {scan.kind === "loading" && <p className="mt-3 text-sm text-ink-700">{t("medicines.scan.loading")}</p>}
-        {scan.kind === "reading" && (
-          <p className="mt-3 text-sm text-ink-700">{t("medicines.scan.reading", { pct: scan.pct })}</p>
+  return (
+    <PageShell>
+      <PageHeader title={t("bill.title")} lead={t("bill.lead")}>
+        <p className="text-callout">
+          <InlineLink href="/check-quote">{t("bill.quoteLink")}</InlineLink>
+        </p>
+      </PageHeader>
+
+      <div className="space-y-8">
+        {rows.length === 0 && (
+          <Card className="space-y-3">
+            <PhotoInput label={t("bill.addPhoto")} onFile={(f) => handleFile(f, "top")} disabled={busy} />
+            <PrivacyNote>{t("bill.privacy")}</PrivacyNote>
+            <p className="text-footnote text-label-2">{t("bill.download")}</p>
+            <Button id="bill-type-instead" variant="plain" onClick={addLine}>
+              {t("bill.typeInstead")}
+            </Button>
+          </Card>
         )}
-        {scan.kind === "failed" && <p className="mt-3 text-sm text-ink-700">{t("bill.scanFailed")}</p>}
-        {scan.kind === "done" && (
-          <p className="mt-3 text-sm text-ink-700">
-            {scan.found > 0 ? t("bill.scanFound", { n: scan.found }) : t("bill.scanNothing")}
-          </p>
+
+        {scanAt === "top" && scanStatus}
+
+        {checked.length > 0 && (
+          <section aria-labelledby="bill-summary" className="space-y-4">
+            <h2 id="bill-summary" className="text-title2 text-label">
+              {t("bill.summaryHeading")}
+            </h2>
+            {/* Two tiles and a full-width saving below 768px: three 104px tiles can't hold "₹1,234" at title size. */}
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+              <StatTile label={sentenceStart(t("bill.summaryChecked"))} value={checked.length} />
+              <StatTile
+                label={sentenceStart(t("bill.summaryAbove"))}
+                value={above}
+                tone={above > 0 ? "warn" : "neutral"}
+              />
+              <div className="col-span-2 md:col-span-1">
+                <StatTile label={sentenceStart(t("bill.summarySaving"))} value={<Money value={saving} />} />
+              </div>
+            </div>
+            {above > 0 && (
+              <Callout tone="warn">
+                <p>
+                  {t("bill.complain")} <ExtLink href={meta.nppa.url}>nppaindia.nic.in</ExtLink>
+                </p>
+              </Callout>
+            )}
+            <ShareButton
+              text={t("bill.shareText", { n: checked.length, above, saving: formatINR(saving) })}
+              path="/check-bill"
+            />
+          </section>
+        )}
+
+        {rows.length > 0 && (
+          <ol className="space-y-3">
+            {rows.map((r, i) => (
+              <BillLine
+                key={r.id}
+                n={i + 1}
+                row={r}
+                refsBySlug={refsBySlug}
+                meta={meta}
+                onChange={(patch) => update(r.id, patch)}
+                onRemove={() => removeLine(r.id)}
+                focusAfterRender={focusAfterRender}
+              />
+            ))}
+          </ol>
+        )}
+
+        {rows.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+              <Button id="bill-add-line" variant="tonal" icon="plus" onClick={addLine}>
+                {t("bill.addLine")}
+              </Button>
+              <PhotoInput
+                variant="plain"
+                label={t("bill.addPhoto")}
+                onFile={(f) => handleFile(f, "bottom")}
+                disabled={busy}
+              />
+            </div>
+            <PrivacyNote>{t("bill.privacy")}</PrivacyNote>
+            {scanAt === "bottom" && scanStatus}
+          </div>
         )}
       </div>
 
-      <ol className="mt-6 space-y-4">
-        {rows.map((r, i) => (
-          <BillRow
-            key={r.id}
-            index={i + 1}
-            row={r}
-            refsBySlug={refsBySlug}
-            onChange={(patch) => update(r.id, patch)}
-            onRemove={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}
-          />
-        ))}
-      </ol>
-
-      {checked.length > 0 && (
-        <section className="mt-8 rounded-2xl bg-contrast p-6 text-contrast-fg">
-          <h2 className="text-lg font-semibold">{t("bill.summaryHeading")}</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <div>
-              <div className="text-3xl font-bold">{checked.length}</div>
-              <div className="text-sm opacity-80">{t("bill.summaryChecked")}</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold">{above}</div>
-              <div className="text-sm opacity-80">{t("bill.summaryAbove")}</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold">{formatINR(Math.round(saving))}</div>
-              <div className="text-sm opacity-80">{t("bill.summarySaving")}</div>
-            </div>
-          </div>
-          {above > 0 && (
-            <p className="mt-4 text-sm opacity-90">
-              {t("bill.complain")}{" "}
-              <a href={nppaUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                NPPA
-              </a>
-              .
-            </p>
-          )}
-          <div className="mt-4">
-            <ShareButton
-              text={t("bill.shareText", { n: checked.length, above, saving: formatINR(Math.round(saving)) })}
-              path="/check-bill"
-            />
-          </div>
-        </section>
-      )}
-
-      <p className="mt-8 text-sm text-ink-500">
-        {t("bill.notChecked")}{" "}
-        <Link href="/check-quote" className="text-brand-700 underline">
-          {t("bill.quoteLink")}
-        </Link>
-      </p>
-      <p className="mt-4 rounded-xl border border-dashed border-ink-300 p-4 text-sm text-ink-700">
-        {t("bill.disclaimer")}{" "}
-        <Link href="/methodology" className="underline">
-          {t("check.methodologyLink")}
-        </Link>
-      </p>
-    </div>
+      <PageNotes anchor="checks" linkKey="check.methodologyLink">
+        <p>
+          {t("bill.notChecked")} <InlineLink href="/check-quote">{t("bill.quoteLink")}</InlineLink>
+        </p>
+        <p>{t("bill.disclaimer")}</p>
+        <SourceNote compact source="NPPA" href={meta.nppa.url} date={meta.nppa.exportDate} anchor="checks" />
+        <SourceNote
+          compact
+          source={t("medicines.jaSourceName")}
+          href={meta.janAushadhi.url}
+          date={meta.janAushadhi.snapshotDate}
+          anchor="checks"
+        />
+        <SourceNote
+          compact
+          source={meta.brands.name}
+          href={meta.brands.url}
+          qualifier={t("medicines.brandsQualifier", { license: meta.brands.license })}
+          date={meta.brands.snapshotDate}
+          anchor="checks"
+        />
+      </PageNotes>
+    </PageShell>
   );
 }
 
-function BillRow({
-  index,
+function BillLine({
+  n,
   row,
   refsBySlug,
+  meta,
   onChange,
   onRemove,
+  focusAfterRender,
 }: {
-  index: number;
+  n: number;
   row: Row;
   refsBySlug: Map<string, MedicineRef>;
+  meta: MedicinesMeta;
   onChange: (patch: Partial<Row>) => void;
   onRemove: () => void;
+  focusAfterRender: (id: string) => void;
 }) {
   const { t } = useTranslation();
+  const announce = useAnnounce();
+  const base = rowBase(row.id);
   const query = medicineQuery(row.description);
+  const searchable = query.replace(/ /g, "").length >= MIN_QUERY_LENGTH;
   const [suggestions, setSuggestions] = useState<{ for: string; hits: MedicineHit[] }>({ for: "", hits: [] });
 
   useEffect(() => {
-    if (row.match || query.replace(/ /g, "").length < MIN_QUERY_LENGTH) return;
+    if (row.match || !searchable) return;
     let cancelled = false;
     const timer = setTimeout(() => {
       searchMedicines(query, 4).then((hits) => {
@@ -235,114 +367,147 @@ function BillRow({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query, row.match]);
+  }, [query, searchable, row.match]);
 
   const ref = row.match ? refsBySlug.get(row.match.slug) : undefined;
   const qty = num(row.qty);
   const amount = num(row.amount);
   const a = ref && qty && amount ? assessMedicineLine(ref, qty, amount) : null;
-  const unitWord = ref ? t(`medicines.unit.${ref.form}`) : "";
-  const hits = suggestions.for === query ? suggestions.hits : [];
+  const unit = ref ? t(`medicines.unit.${ref.form}`) : "";
+  const searching = !row.match && searchable && suggestions.for !== query;
+  const hits = !row.match && searchable && suggestions.for === query ? suggestions.hits : [];
+  const lineLabel = t("bill.lineN", { n });
+  const matchName = row.match
+    ? row.match.kind === "b" && ref
+      ? `${row.match.name} (${ref.title})`
+      : (ref?.title ?? row.match.name)
+    : "";
 
-  const inputCls =
-    "mt-1 w-full rounded-lg border border-ink-300 bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
+  function pick(hit: MedicineHit) {
+    const pickedRef = refsBySlug.get(hit.slug);
+    const canCheck = Boolean(pickedRef && qty && amount);
+    onChange({ match: hit, collapsed: canCheck });
+    if (canCheck && pickedRef && qty && amount) {
+      const status = LINE[assessMedicineLine(pickedRef, qty, amount).status];
+      announce(`${lineLabel}: ${t(LABEL_KEY[status])}`);
+      focusAfterRender(`${base}-heading`);
+    } else {
+      focusAfterRender(qty ? `${base}-amount` : `${base}-qty`);
+    }
+  }
 
-  return (
-    <li className="rounded-2xl border border-ink-100 bg-surface p-4">
-      <div className="flex items-start gap-3">
-        <span className="mt-7 w-5 shrink-0 text-sm font-bold text-brand-600">{index}</span>
-        <div className="grid flex-1 gap-3 sm:grid-cols-[1fr_8rem_8rem]">
-          <label className="block">
-            <span className="text-xs text-ink-500">{t("bill.colItem")}</span>
-            <input
-              value={row.description}
-              onChange={(e) => onChange({ description: e.target.value, match: null })}
-              placeholder="Pan 40 Tab"
-              className={inputCls}
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs text-ink-500">{t("bill.colQty")}</span>
-            <input
-              inputMode="numeric"
-              value={row.qty}
-              onChange={(e) => onChange({ qty: e.target.value.replace(/[^\d]/g, "") })}
-              placeholder="15"
-              className={inputCls}
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs text-ink-500">{t("bill.colAmount")}</span>
-            <input
-              inputMode="decimal"
-              value={row.amount}
-              onChange={(e) => onChange({ amount: e.target.value.replace(/[^\d.,]/g, "") })}
-              placeholder="₹"
-              className={inputCls}
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={t("bill.remove")}
-          className="mt-7 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-ink-50"
-        >
-          ×
-        </button>
-      </div>
-
-      <div className="mt-3 pl-8">
-        {row.match ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-ink-500">{t("bill.matchedTo")}</span>
-            <Link href={`/medicines/${row.match.slug}`} className="font-medium text-brand-700 hover:underline">
-              {ref?.title ?? row.match.name}
-            </Link>
-            {row.match.kind === "b" && <span className="text-ink-500">({row.match.name})</span>}
-            <button type="button" onClick={() => onChange({ match: null })} className="text-xs text-ink-500 underline">
-              {t("bill.change")}
-            </button>
-          </div>
-        ) : hits.length > 0 ? (
-          <div>
-            <p className="text-xs text-ink-500">{t("bill.pickMatch")}</p>
-            <div className="mt-1 flex flex-wrap gap-2">
-              {hits.map((h, i) => (
-                <button
-                  key={`${h.slug}-${h.name}-${i}`}
-                  type="button"
-                  onClick={() => onChange({ match: h })}
-                  className="rounded-full border border-brand-200 px-3 py-1 text-sm text-brand-800 hover:bg-brand-50"
-                >
-                  {h.name}
-                </button>
-              ))}
+  if (row.collapsed && a && amount && qty) {
+    const status = LINE[a.status];
+    return (
+      <li>
+        <Card className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 id={`${base}-heading`} tabIndex={-1} className="text-headline text-label focus:outline-none">
+              {lineLabel}
+            </h2>
+            <p className="text-body text-label">
+              <DataText>{row.description || matchName}</DataText>
+            </p>
+            <p className="text-callout tabular-nums text-label-2">
+              {qty} · <Money value={amount} />
+            </p>
+            <div className="mt-2">
+              <Badge tone={status === "above" ? "warn" : "neutral"} icon={BADGE_ICON[status]}>
+                {t(LABEL_KEY[status])}
+              </Badge>
             </div>
           </div>
+          <Button
+            variant="plain"
+            aria-label={`${t("bill.edit")}: ${lineLabel}`}
+            onClick={() => {
+              onChange({ collapsed: false });
+              focusAfterRender(`${base}-item`);
+            }}
+          >
+            {t("bill.edit")}
+          </Button>
+        </Card>
+      </li>
+    );
+  }
+
+  return (
+    <li>
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id={`${base}-heading`} tabIndex={-1} className="text-headline text-label focus:outline-none">
+            {lineLabel}
+          </h2>
+          <IconButton icon="trash" label={t("bill.remove", { n })} onClick={onRemove} className="-mr-2" />
+        </div>
+
+        <TextField
+          id={`${base}-item`}
+          label={t("bill.colItem")}
+          value={row.description}
+          onChange={(e) => onChange({ description: e.target.value, match: null })}
+          placeholder="Pan 40 Tab"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+        />
+        <div className="grid grid-cols-2 items-end gap-3">
+          <TextField
+            id={`${base}-qty`}
+            label={t("bill.colQty")}
+            inputMode="numeric"
+            autoComplete="off"
+            className="tabular-nums"
+            value={row.qty}
+            onChange={(e) => onChange({ qty: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+            placeholder="15"
+          />
+          {/* Not MoneyField: it accepts whole rupees only, and pharmacy bills carry paise. */}
+          <TextField
+            id={`${base}-amount`}
+            label={t("bill.colAmount")}
+            inputMode="decimal"
+            autoComplete="off"
+            className="tabular-nums"
+            value={row.amount}
+            onChange={(e) => onChange({ amount: decimalInput(e.target.value) })}
+          />
+        </div>
+
+        {row.match ? (
+          <div className="flex flex-wrap items-center gap-x-3">
+            <p className="text-body text-label">
+              {t("bill.matchedTo")} <DataText>{matchName}</DataText>
+            </p>
+            <Button variant="plain" onClick={() => onChange({ match: null, collapsed: false })}>
+              {t("bill.change")}
+            </Button>
+          </div>
+        ) : hits.length > 0 ? (
+          <div className="space-y-3">
+            <StatusLine status="pick" label={t("bill.label.pick")} sentence={t("bill.pickMatch")} />
+            <ChipRow wrap label={t("bill.pickMatch")}>
+              {hits.map((h, i) => (
+                <ChoiceChip key={`${h.slug}-${h.name}-${i}`} type="toggle" checked={false} onChange={() => pick(h)}>
+                  <DataText>{h.name}</DataText>
+                </ChoiceChip>
+              ))}
+            </ChipRow>
+          </div>
+        ) : searching ? (
+          <p className="text-callout text-label-2">{t("medicines.searching")}</p>
         ) : row.description.trim() ? (
-          <p className="text-xs text-ink-500">{t("bill.noMatch")}</p>
+          <p className="text-callout text-label-2">{t("bill.noMatch")}</p>
         ) : null}
 
-        {row.match && !qty && <p className="mt-2 text-xs text-ink-500">{t("bill.needQty")}</p>}
+        {row.match && !qty && <p className="text-callout text-label-2">{t("bill.needQty")}</p>}
 
         {a && ref && qty && (
-          <div
-            className={`mt-3 rounded-xl p-3 text-sm ${
-              a.status === "aboveCeiling" || a.status === "checkUnits"
-                ? "bg-warn-50 text-warn-900"
-                : "bg-brand-50 text-ink-900"
-            }`}
-          >
-            <p className="font-semibold">
-              {t(`bill.status.${a.status}`, {
-                per: formatINRUnit(a.perUnit),
-                unit: unitWord,
-                ceiling: formatINRUnit(a.ceilingWithGst),
-              })}
-            </p>
-            {ref.nppaCeiling && a.status !== "checkUnits" && (
-              <p className="mt-1 text-xs opacity-80">
+          <div className="space-y-2">
+            <StatusLine status={LINE[a.status]} label={t(LABEL_KEY[LINE[a.status]])} sentence={statusSentence(t, a, unit)} />
+            {ref.nppaCeiling && (
+              <p className="text-footnote text-label-2">
                 {t("bill.ceilingSource", {
                   price: formatINRUnit(ref.nppaCeiling.price),
                   so: ref.nppaCeiling.soNumber,
@@ -351,25 +516,34 @@ function BillRow({
               </p>
             )}
             {a.janAushadhiTotal !== null && a.status !== "checkUnits" && (
-              <p className="mt-1">
-                {t("bill.jaLine", {
-                  qty,
-                  unit: unitWord,
-                  ja: formatINR(Math.round(a.janAushadhiTotal)),
-                })}
+              <p className="text-callout text-label">
+                {t("bill.jaLine", { qty, unit, ja: formatINR(Math.round(a.janAushadhiTotal)) })}
                 {a.possibleSaving !== null && a.possibleSaving >= 1 && (
-                  <strong> {t("bill.jaSaving", { saving: formatINR(Math.round(a.possibleSaving)) })}</strong>
+                  <span className="font-semibold">
+                    {" "}
+                    {t("bill.jaSaving", { saving: formatINR(Math.round(a.possibleSaving)) })}
+                  </span>
                 )}
               </p>
             )}
             {row.match?.kind === "b" && row.match.perUnit !== null && a.status !== "checkUnits" && (
-              <p className="mt-1 text-xs opacity-80">
-                {t("bill.brandMrp", { price: formatINRUnit(row.match.perUnit), unit: unitWord })}
-              </p>
+              <div className="-mx-4">
+                <Disclosure variant="inline" summary={t("common.details")}>
+                  <p>{t("bill.brandMrp", { price: formatINRUnit(row.match.perUnit), unit })}</p>
+                  <p className="text-footnote">
+                    {t("bill.brandCredit", {
+                      name: meta.brands.name,
+                      date: formatISODate(meta.brands.snapshotDate),
+                      license: meta.brands.license,
+                    })}{" "}
+                    <ExtLink href={meta.brands.url}>Kaggle</ExtLink>
+                  </p>
+                </Disclosure>
+              </div>
             )}
           </div>
         )}
-      </div>
+      </Card>
     </li>
   );
 }

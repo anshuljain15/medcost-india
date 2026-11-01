@@ -4,6 +4,7 @@
 //   node scripts/check-i18n.cjs                 # whole repo
 //   node scripts/check-i18n.cjs components/Foo  # only report files under these prefixes
 // Exits 1 if anything is wrong. No dependencies beyond the repo's typescript.
+/* eslint-disable @typescript-eslint/no-require-imports -- a CommonJS script run directly by node */
 const path = require("path");
 const fs = require("fs");
 const root = path.resolve(__dirname, "..");
@@ -15,7 +16,7 @@ const src = fs.readFileSync(path.join(root, "lib/i18n/translations.ts"), "utf8")
 const js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
 const mod = { exports: {} };
 new Function("module", "exports", "require", js)(mod, mod.exports, require);
-const { translations, LOCALES } = mod.exports;
+const { translations } = mod.exports;
 const NS = new Set(Object.keys(translations.en));
 function resolve(obj, p) { return p.split(".").reduce((a, k) => (a && typeof a === "object" && k in a ? a[k] : undefined), obj); }
 function placeholders(s) { return new Set([...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1])); }

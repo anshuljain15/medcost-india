@@ -1,215 +1,448 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import type { Procedure } from "@/lib/types";
-import { assessQuote, type Ward } from "@/lib/billCheck";
-import { formatINR } from "@/lib/format";
-import { useTranslation } from "@/lib/i18n/LanguageProvider";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActionLink,
+  Button,
+  Callout,
+  Card,
+  ChipRow,
+  ChoiceChip,
+  Combobox,
+  DataText,
+  Disclosure,
+  InlineLink,
+  InsetGroup,
+  ListRow,
+  Money,
+  MoneyField,
+  MoneyRange,
+  PageHeader,
+  PageNotes,
+  PageShell,
+  RangeBar,
+  SegmentedControl,
+  SourceNote,
+  StickyActionBar,
+  VerdictCard,
+  type ComboOption,
+} from "@/components/ui";
 import ShareButton from "@/components/ShareButton";
+import { GROUP_LABEL_KEY } from "@/components/ProcedureListView";
+import { assessQuote, type QuotePosition, type Ward } from "@/lib/billCheck";
+import { formatINR } from "@/lib/format";
+import { GROUP_ORDER, procedureGroup, type GroupKey } from "@/lib/procedureGroups";
+import { synonymsFor } from "@/lib/search/synonyms";
+import type { Procedure } from "@/lib/types";
+import { useTranslation } from "@/lib/i18n/LanguageProvider";
 
+/** The slice of a procedure the checker needs, built by the server page. */
+export type QuoteProcedure = {
+  slug: string;
+  name: string;
+  low: number | null;
+  high: number | null;
+  sourceUrl: string;
+  /** Hospital-wise [min, avg] pairs, names dropped. */
+  prices: [min: number | null, avg: number | null][];
+  /** CGHS ward amounts, already read with parseCghsAmount (null = not listed). */
+  cghs: {
+    name: string;
+    code: string;
+    nabh: boolean;
+    general: number | null;
+    semiPrivate: number | null;
+    private: number | null;
+  } | null;
+};
+
+type Kind = "quote" | "bill";
+type WardChoice = Ward | "notSure";
+type Status = "within" | "above" | "below" | "unknown";
+
+const NOT_LISTED = "__not-listed";
 const WARDS: Ward[] = ["general", "semiPrivate", "private"];
 
-function parseAmount(s: string): number | null {
-  const n = Number(s.replace(/[^\d]/g, ""));
-  return Number.isFinite(n) && n > 0 ? n : null;
+const WARD_LABEL_KEY: Record<WardChoice, string> = {
+  general: "quote.ward.general",
+  semiPrivate: "quote.ward.semiPrivate",
+  private: "quote.ward.private",
+  notSure: "quote.ward.notSure",
+};
+
+// lowerHalf and upperHalf both read as "within". Only "above" is amber.
+const STATUS: Record<QuotePosition, Status> = {
+  below: "below",
+  lowerHalf: "within",
+  upperHalf: "within",
+  above: "above",
+  unknown: "unknown",
+};
+
+const VERDICT_KEY: Record<QuotePosition, string> = {
+  below: "quote.verdict.below",
+  lowerHalf: "quote.verdict.lowerHalf",
+  upperHalf: "quote.verdict.upperHalf",
+  above: "quote.verdict.above",
+  unknown: "quote.verdict.unknown",
+};
+
+/**
+ * assessQuote (lib/billCheck.ts, shared with another stream) takes a full
+ * Procedure. Rebuild one from the slim row. The CGHS reference is left out on
+ * purpose: the slim row carries ward amounts the server already ran through
+ * parseCghsAmount, and the CGHS comparison here uses those directly.
+ */
+function asProcedure(p: QuoteProcedure): Procedure {
+  return {
+    slug: p.slug,
+    name: p.name,
+    cityLow: p.low,
+    cityHigh: p.high,
+    hospitalPrices: p.prices.map(([min, avg]) => ({ hospitalName: "", hospitalSlug: null, min, max: null, avg })),
+    cghsReference: null,
+    source: "hexahealth",
+    sourceUrl: p.sourceUrl,
+  };
 }
 
-export default function QuoteCheckView({ procedures }: { procedures: Procedure[] }) {
-  const { t, dict } = useTranslation();
-  const sorted = useMemo(() => [...procedures].sort((a, b) => a.name.localeCompare(b.name)), [procedures]);
-  const [slug, setSlug] = useState("");
-  const [amountText, setAmountText] = useState("");
-  const [ward, setWard] = useState<Ward>("general");
+function WardAmounts({ cghs }: { cghs: NonNullable<QuoteProcedure["cghs"]> }) {
+  const { t } = useTranslation();
+  return (
+    <dl className="mt-3 grid grid-cols-3 gap-2">
+      {WARDS.map((w) => (
+        <div key={w}>
+          <dt className="text-footnote text-label-2">{t(WARD_LABEL_KEY[w])}</dt>
+          <dd className="text-headline tabular-nums text-label">
+            <Money value={cghs[w]} />
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
-  // /check-quote#knee-replacement preselects, so procedure pages can link here.
+/**
+ * /check-quote (focus mode): one screen. What you have (a quote or a final
+ * bill), the treatment, the amount and, only when the treatment has a CGHS
+ * match, the room type. The result appears below the form on submit, takes
+ * focus, and then follows later edits live.
+ */
+export default function QuoteCheckView({
+  procedures,
+  hexahealthDate,
+  cghsDate,
+  cghsUrl,
+}: {
+  procedures: QuoteProcedure[];
+  /** Retrieval dates; null renders "date not recorded", never a guess. */
+  hexahealthDate: string | null;
+  cghsDate: string | null;
+  cghsUrl: string;
+}) {
+  const { t, dict, locale } = useTranslation();
+  const [kind, setKind] = useState<Kind>("quote");
+  const [slug, setSlug] = useState<string | null>(null);
+  const [amountText, setAmountText] = useState("");
+  const [ward, setWard] = useState<WardChoice>("notSure");
+  const [submitted, setSubmitted] = useState(false);
+  const [focusTick, setFocusTick] = useState(0);
+  const verdictRef = useRef<HTMLHeadingElement>(null);
+
+  // /check-quote#knee-replacement-surgery preselects, so procedure pages,
+  // hospital pages and shared links can land here with the treatment chosen.
   useEffect(() => {
-    const fromHash = decodeURIComponent(window.location.hash.slice(1));
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the hash only exists after mount
-    if (procedures.some((p) => p.slug === fromHash)) setSlug(fromHash);
+    const fromHash = () => {
+      let hash = "";
+      try {
+        hash = decodeURIComponent(window.location.hash.slice(1));
+      } catch {
+        return;
+      }
+      if (procedures.some((p) => p.slug === hash)) setSlug(hash);
+    };
+    // The hash only exists in the browser, so it is read after mount.
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
   }, [procedures]);
 
-  const procedure = procedures.find((p) => p.slug === slug);
-  const quote = parseAmount(amountText);
-  const result = procedure && quote ? assessQuote(procedure, quote, ward) : null;
+  // On submit, move focus to the verdict heading once it has rendered.
+  useEffect(() => {
+    if (focusTick > 0) verdictRef.current?.focus();
+  }, [focusTick]);
 
-  const verdict =
-    result && procedure
-      ? t(`quote.verdict.${result.position}`, { proc: procedure.name })
-      : "";
+  const options = useMemo<ComboOption[]>(
+    () =>
+      [...procedures]
+        .sort((a, b) => a.name.localeCompare(b.name, "en"))
+        .map((p) => ({
+          value: p.slug,
+          label: p.name,
+          group: procedureGroup(p.slug).group,
+          keywords: synonymsFor(p.slug),
+          lang: locale === "hi" ? "en" : undefined,
+        })),
+    [procedures, locale]
+  );
 
-  const shareText =
-    procedure && quote
-      ? t("quote.shareText", {
-          proc: procedure.name,
-          quote: formatINR(quote),
-          low: formatINR(procedure.cityLow),
-          high: formatINR(procedure.cityHigh),
-        })
-      : "";
+  const procedure = procedures.find((p) => p.slug === slug) ?? null;
+  const amount = amountText ? Number(amountText) : NaN;
+  const hasAmount = Number.isFinite(amount) && amount > 0;
+  const canSubmit = procedure !== null && hasAmount;
+  const isBill = kind === "bill";
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSubmitted(true);
+    setFocusTick((n) => n + 1);
+  }
+
+  function checkAgain() {
+    const field = document.getElementById("quote-amount");
+    if (field instanceof HTMLInputElement) {
+      field.focus({ preventScroll: true });
+      field.scrollIntoView({ block: "center" });
+      field.select();
+    }
+  }
+
+  const askList = isBill ? dict.quote.askListBill : dict.quote.askList;
+
+  let result: React.ReactNode = null;
+  if (submitted && procedure && hasAmount) {
+    const assessment = assessQuote(asProcedure(procedure), amount, "general");
+    const status = STATUS[assessment.position];
+    const { low, high, cghs } = procedure;
+    const hasRange = status !== "unknown" && low !== null && high !== null;
+    const wardRate = cghs && ward !== "notSure" ? cghs[ward] : null;
+    const shareVars = {
+      proc: procedure.name,
+      quote: formatINR(amount),
+      low: formatINR(low),
+      high: formatINR(high),
+    };
+
+    result = (
+      <div className="mt-10 space-y-6">
+        <VerdictCard
+          status={status}
+          sentence={t(VERDICT_KEY[assessment.position], { proc: procedure.name })}
+          headingRef={verdictRef}
+        >
+          {hasRange && (
+            <>
+              <RangeBar
+                low={low}
+                high={high}
+                amount={amount}
+                above={status === "above"}
+                ariaLabel={t("quote.rangeAria", {
+                  amount: formatINR(amount),
+                  low: formatINR(low),
+                  high: formatINR(high),
+                })}
+              />
+              <div>
+                <p className="text-callout text-label">
+                  <MoneyRange low={low} high={high} /> · {t("source.marketQualifier")}
+                </p>
+                <SourceNote source="HexaHealth" href={procedure.sourceUrl} date={hexahealthDate} anchor="market-prices" />
+              </div>
+            </>
+          )}
+          <div>
+            <h3 className="mb-2 text-headline text-label">{t("quote.whatToDo")}</h3>
+            <ul>
+              {status === "below" && <li>{t("quote.belowTip")}</li>}
+              {askList.map((q) => (
+                <li key={q}>{q}</li>
+              ))}
+            </ul>
+          </div>
+          <Callout tone="info" title={t("quote.rightsHeading")}>
+            <p>{t("quote.rights")}</p>
+          </Callout>
+        </VerdictCard>
+
+        <Card>
+          <h2 className="text-headline text-label">{t("quote.hospitalsHeading")}</h2>
+          <p className="mt-2 text-body text-label">
+            {assessment.hospitalsCompared > 0
+              ? t("quote.hospitalsBelow", { below: assessment.hospitalsBelow, n: assessment.hospitalsCompared })
+              : t("quote.hospitalsNone")}
+          </p>
+          {assessment.hospitalsCompared > 0 && (
+            <div className="mt-2">
+              <ActionLink href={`/procedures/${procedure.slug}#hospitals`}>{t("quote.seeHospitals")}</ActionLink>
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="text-headline text-label">{t("quote.cghsHeading")}</h2>
+          {cghs ? (
+            <>
+              {ward !== "notSure" && wardRate !== null ? (
+                <p className="mt-2 text-body text-label">
+                  {t("quote.cghsMultiple", {
+                    x: (amount / wardRate).toLocaleString("en-IN", { maximumFractionDigits: 1 }),
+                    ward: t(WARD_LABEL_KEY[ward]),
+                    rate: formatINR(wardRate),
+                  })}
+                </p>
+              ) : (
+                <>
+                  {ward === "notSure" && <p className="mt-2 text-body text-label">{t("quote.cghsPickRoom")}</p>}
+                  <WardAmounts cghs={cghs} />
+                </>
+              )}
+              <SourceNote
+                source={new URL(cghsUrl).hostname}
+                href={cghsUrl}
+                qualifier={t("source.cghs")}
+                date={cghsDate}
+                anchor="govt-rates"
+              />
+            </>
+          ) : (
+            // No confident match stays a visible state.
+            <p className="mt-2 text-body text-label">
+              {t("quote.cghsNone")} <InlineLink href="/methodology#govt-rates">{t("procedure.howWeMatch")}</InlineLink>
+            </p>
+          )}
+          <div className="-mx-4 mt-4">
+            <Disclosure variant="inline" summary={t("procedure.cghsWhat")}>
+              <p>{t("quote.cghsExplain")}</p>
+              {cghs && (
+                <p>
+                  {t("procedure.matchedLine")} <DataText>{cghs.name}</DataText> ({cghs.code})
+                  {cghs.nabh && ` · ${t("procedure.govTier")}`}
+                </p>
+              )}
+            </Disclosure>
+          </div>
+        </Card>
+
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <ShareButton
+            text={isBill ? t("quote.shareTextBill", shareVars) : t("quote.shareText", shareVars)}
+            path={`/check-quote#${procedure.slug}`}
+          />
+          <Button variant="plain" onClick={checkAgain}>
+            {t("quote.again")}
+          </Button>
+        </div>
+
+        <InsetGroup>
+          <ListRow href="/share-bill" leading="users" title={t("quote.sharePaid")} />
+        </InsetGroup>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12">
-      <div className="text-xs font-semibold uppercase tracking-wide text-brand-700">{t("quote.eyebrow")}</div>
-      <h1 className="mt-2 text-3xl font-bold text-ink-900">{t("quote.title")}</h1>
-      <p className="mt-3 text-ink-700">{t("quote.subtitle")}</p>
+    <PageShell>
+      {/* PageShell's pb-16 plus pb-12 keeps the phone's sticky action bar off the content (pb-28). */}
+      <div className="pb-12 md:pb-0">
+        <PageHeader title={t("quote.title")} lead={t("quote.lead")} />
 
-      <div className="mt-8 grid gap-4 rounded-2xl border border-ink-100 bg-surface p-5 sm:grid-cols-2">
-        <label className="block sm:col-span-2">
-          <span className="text-sm font-medium text-ink-900">{t("quote.procedureLabel")}</span>
-          <select
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-ink-300 bg-surface px-3 py-2.5 text-ink-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-          >
-            <option value="">{t("quote.procedurePlaceholder")}</option>
-            {sorted.map((p) => (
-              <option key={p.slug} value={p.slug}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-ink-900">{t("quote.amountLabel")}</span>
-          <div className="mt-1 flex items-center rounded-lg border border-ink-300 bg-surface focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
-            <span className="pl-3 text-ink-500">₹</span>
-            <input
-              inputMode="numeric"
-              value={amountText}
-              onChange={(e) => setAmountText(e.target.value.replace(/[^\d,]/g, ""))}
-              placeholder="1,50,000"
-              className="w-full bg-transparent px-2 py-2.5 text-ink-900 outline-none"
+        <form onSubmit={onSubmit} noValidate>
+          <div className="space-y-6">
+            <SegmentedControl<Kind>
+              name="quote-kind"
+              legend={t("quote.kindLabel")}
+              options={[
+                { value: "quote", label: t("quote.kind.quote") },
+                { value: "bill", label: t("quote.kind.bill") },
+              ]}
+              value={kind}
+              onChange={setKind}
             />
-          </div>
-        </label>
 
-        <fieldset className={procedure?.cghsReference ? "" : "opacity-50"} disabled={!procedure?.cghsReference}>
-          <legend className="text-sm font-medium text-ink-900">{t("quote.wardLabel")}</legend>
-          <div className="mt-1 flex flex-wrap gap-2">
-            {WARDS.map((w) => (
-              <button
-                key={w}
-                type="button"
-                onClick={() => setWard(w)}
-                className={`rounded-full border px-3 py-1.5 text-sm ${
-                  ward === w ? "border-brand-600 bg-brand-50 font-semibold text-brand-800" : "border-ink-300 text-ink-700"
-                }`}
-              >
-                {t(`quote.ward.${w}`)}
-              </button>
-            ))}
-          </div>
-          {procedure && !procedure.cghsReference && (
-            <p className="mt-1 text-xs text-ink-500">{t("quote.wardNoCghs")}</p>
-          )}
-        </fieldset>
-      </div>
-
-      {procedure && result && quote && (
-        <section className="mt-6 overflow-hidden rounded-2xl border border-ink-100 bg-surface">
-          <div
-            className={`px-5 py-4 ${
-              result.position === "above" ? "bg-warn-50 text-warn-900" : "bg-brand-50 text-brand-900"
-            }`}
-          >
-            <p className="text-lg font-semibold">{verdict}</p>
-          </div>
-
-          <div className="space-y-6 p-5">
-            {result.rangeFraction !== null && (
-              <div>
-                <div className="text-xs uppercase tracking-wide text-ink-500">{t("quote.rangeHeading")}</div>
-                <div className="relative mt-8 h-3 rounded-full bg-brand-100">
-                  <div
-                    className="absolute -top-7 -translate-x-1/2 whitespace-nowrap text-xs font-semibold text-ink-900"
-                    style={{ left: `${result.rangeFraction * 100}%` }}
-                  >
-                    {result.position === "below" ? "◀ " : ""}
-                    {formatINR(quote)}
-                    {result.position === "above" ? " ▶" : ""}
-                  </div>
-                  <div
-                    className={`absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-surface ${
-                      result.position === "above" ? "bg-warn-700" : "bg-brand-600"
-                    }`}
-                    style={{ left: `${result.rangeFraction * 100}%` }}
-                  />
-                </div>
-                <div className="mt-2 flex justify-between text-xs text-ink-500">
-                  <span>{formatINR(procedure.cityLow)}</span>
-                  <span>{formatINR(procedure.cityHigh)}</span>
-                </div>
-                <p className="mt-1 text-xs text-ink-500">
-                  {t("quote.rangeSource")}{" "}
-                  <a href={procedure.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                    HexaHealth
-                  </a>
-                </p>
-              </div>
-            )}
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border border-ink-100 bg-ink-50 p-4">
-                <div className="text-xs uppercase tracking-wide text-ink-500">{t("quote.hospitalsHeading")}</div>
-                {result.hospitalsCompared > 0 ? (
-                  <p className="mt-1 text-ink-900">
-                    {t("quote.hospitalsBelow", { below: result.hospitalsBelow, n: result.hospitalsCompared })}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-sm text-ink-500">{t("quote.hospitalsNone")}</p>
-                )}
-                <Link href={`/procedures/${procedure.slug}`} className="mt-2 inline-block text-sm text-brand-700 hover:underline">
-                  {t("quote.seeHospitals")}
-                </Link>
-              </div>
-
-              <div className="rounded-xl border border-ink-100 bg-ink-50 p-4">
-                <div className="text-xs uppercase tracking-wide text-ink-500">{t("quote.cghsHeading")}</div>
-                {result.cghsRate && result.cghsMultiple && procedure.cghsReference ? (
-                  <>
-                    <p className="mt-1 text-ink-900">
-                      {t("quote.cghsMultiple", {
-                        x: result.cghsMultiple.toLocaleString("en-IN", { maximumFractionDigits: 1 }),
-                        rate: formatINR(result.cghsRate),
-                      })}
+            <div>
+              <Combobox
+                id="quote-procedure"
+                label={t("quote.procedureLabel")}
+                placeholder={t("quote.procedureSearch")}
+                options={options}
+                groupOrder={GROUP_ORDER}
+                groupLabel={(g) => t(GROUP_LABEL_KEY[g as GroupKey] ?? "procedures.group.other")}
+                value={slug}
+                onChange={setSlug}
+                footerOption={{ value: NOT_LISTED, label: t("quote.notListed") }}
+              />
+              {slug === NOT_LISTED && (
+                <div className="mt-3">
+                  <Callout tone="info">
+                    <p>
+                      {t("quote.notListedBody")} <InlineLink href="/share-bill">{t("nav.shareBill")}</InlineLink>
                     </p>
-                    <p className="mt-1 text-xs text-ink-500">
-                      {procedure.cghsReference.name} ({procedure.cghsReference.code}) · {t(`quote.ward.${ward}`)}
-                      {procedure.cghsReference.nabh ? " · NABH" : ""}. {t("quote.cghsExplain")}
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-1 text-sm text-ink-500">{t("quote.cghsNone")}</p>
-                )}
-              </div>
+                  </Callout>
+                </div>
+              )}
             </div>
 
-            <ShareButton text={shareText} path="/check-quote" />
+            <MoneyField
+              id="quote-amount"
+              label={isBill ? t("quote.amountLabelBill") : t("quote.amountLabel")}
+              hint={t("quote.amountHint")}
+              value={amountText}
+              onValueChange={setAmountText}
+            />
+
+            {/* Room type changes the result only through the CGHS rate, so it is
+                shown only for treatments with a confident CGHS match. */}
+            {procedure?.cghs && (
+              <fieldset className="min-w-0">
+                <legend className="mb-2 text-headline text-label">{t("quote.wardLabel")}</legend>
+                <ChipRow wrap>
+                  {(["general", "semiPrivate", "private", "notSure"] as WardChoice[]).map((w) => (
+                    <ChoiceChip
+                      key={w}
+                      type="radio"
+                      name="quote-ward"
+                      value={w}
+                      checked={ward === w}
+                      onChange={(checked) => {
+                        if (checked) setWard(w);
+                      }}
+                    >
+                      {t(WARD_LABEL_KEY[w])}
+                    </ChoiceChip>
+                  ))}
+                </ChipRow>
+              </fieldset>
+            )}
           </div>
-        </section>
-      )}
 
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold text-ink-900">{t("quote.askHeading")}</h2>
-        <ul className="mt-3 space-y-2 text-sm text-ink-700">
-          {dict.quote.askList.map((q) => (
-            <li key={q} className="flex gap-2">
-              <span className="text-brand-600">✓</span>
-              <span>{q}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-4 rounded-xl bg-ink-50 p-4 text-sm text-ink-700">{t("quote.rights")}</p>
-      </section>
+          <StickyActionBar>
+            <Button type="submit" size="lg" block disabled={!canSubmit}>
+              {isBill ? t("quote.submitBill") : t("quote.submit")}
+            </Button>
+          </StickyActionBar>
+        </form>
 
-      <p className="mt-8 rounded-xl border border-dashed border-ink-300 p-4 text-sm text-ink-700">
-        {t("quote.disclaimer")}{" "}
-        <Link href="/methodology" className="underline">
-          {t("check.methodologyLink")}
-        </Link>
-      </p>
-    </div>
+        {!submitted && (
+          <div className="mt-10">
+            <Disclosure summary={t("quote.askDisclosure")}>
+              <ul className="list-disc space-y-2 pl-5 marker:text-label-3">
+                {dict.quote.askList.map((q) => (
+                  <li key={q}>{q}</li>
+                ))}
+              </ul>
+              <p>{t("quote.rights")}</p>
+            </Disclosure>
+          </div>
+        )}
+
+        {result}
+
+        <PageNotes anchor="checks" linkKey="check.methodologyLink">
+          <p>{t("quote.disclaimer")}</p>
+        </PageNotes>
+      </div>
+    </PageShell>
   );
 }

@@ -1,12 +1,44 @@
-import { getAllProcedures } from "@/lib/data";
-import QuoteCheckView from "@/components/QuoteCheckView";
+import type { Metadata } from "next";
+import { getAllProcedures, getSourceDates } from "@/lib/data";
+import { CGHS_SOURCE_URL } from "@/lib/cghs";
+import { parseCghsAmount } from "@/lib/format";
+import QuoteCheckView, { type QuoteProcedure } from "@/components/QuoteCheckView";
 
-export const metadata = {
-  title: "Check a hospital quote | MedCost India",
+export const metadata: Metadata = {
+  title: "Check a hospital quote or bill",
   description:
-    "Compare a hospital's estimate with the Bangalore market range, hospital-wise prices and the CGHS government rate.",
+    "Compare a hospital's quote or final bill with the Bangalore market estimate, hospital-wise prices and the government (CGHS) rate.",
 };
 
+// Server page: the checker gets a slim row per procedure (no hospital names),
+// with CGHS ward amounts already parsed from the scraped strings.
 export default function CheckQuotePage() {
-  return <QuoteCheckView procedures={getAllProcedures()} />;
+  const procedures: QuoteProcedure[] = getAllProcedures().map((p) => ({
+    slug: p.slug,
+    name: p.name,
+    low: p.cityLow,
+    high: p.cityHigh,
+    sourceUrl: p.sourceUrl,
+    prices: p.hospitalPrices.map((h) => [h.min, h.avg]),
+    cghs: p.cghsReference
+      ? {
+          name: p.cghsReference.name,
+          code: p.cghsReference.code,
+          nabh: p.cghsReference.nabh,
+          general: parseCghsAmount(p.cghsReference.generalWard),
+          semiPrivate: parseCghsAmount(p.cghsReference.semiPrivateWard),
+          private: parseCghsAmount(p.cghsReference.privateWard),
+        }
+      : null,
+  }));
+  const dates = getSourceDates();
+
+  return (
+    <QuoteCheckView
+      procedures={procedures}
+      hexahealthDate={dates.hexahealth}
+      cghsDate={dates.cghs}
+      cghsUrl={CGHS_SOURCE_URL}
+    />
+  );
 }

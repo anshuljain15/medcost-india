@@ -47,7 +47,7 @@ export default function RootLayout({
   return (
     // The font variables sit on <html> so --font-stack resolves at :root.
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${deva.variable}`}>
-      <body className="flex min-h-dvh flex-col bg-background font-sans text-label antialiased">
+      <body className="flex min-h-dvh flex-col bg-canvas font-sans text-label antialiased">
         {/* Two tags, never `A + B`: both constants live in "use client"
             modules, so in this server component they are client-reference
             proxies. Passed through untouched, SSR resolves each to its real

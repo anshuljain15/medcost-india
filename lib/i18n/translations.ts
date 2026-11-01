@@ -13,8 +13,9 @@ export const LOCALES: { code: Locale; label: string; name: string }[] = [
 //
 // Copy rules (docs/design-system.md §8): no arrows in strings (chevrons are
 // icons), Hindi in everyday words (इलाज, कीमत, दायरा/रेंज for a range —
-// never सीमा), {var} interpolation. Keys listed in §8.3 are kept only until
-// the old pages stop referencing them; the parity check at the bottom of
+// never सीमा), {var} interpolation. The §8.3 keys were deleted in the Phase 5
+// cleanup; delete a key here once no t() call, key map or template prefix
+// (e.g. `share.category.${c}`) reaches it. The parity check at the bottom of
 // this file fails the build if en and hi drift apart.
 export const translations = {
   en: {
@@ -25,7 +26,6 @@ export const translations = {
       methodology: "How we get prices",
       medicines: "Medicines",
       kendras: "Find a Jan Aushadhi store",
-      findPrice: "Find a price",
       checkBill: "Check a medicine bill",
       checkQuote: "Check a hospital quote or bill",
       shareBill: "Share your bill",
@@ -54,7 +54,6 @@ export const translations = {
     },
     common: {
       showMore: "Show {n} more",
-      showAll: "Show all {n}",
       change: "Change",
       details: "Details",
       call: "Call",
@@ -96,14 +95,10 @@ export const translations = {
       pinRow: "Jan Aushadhi stores for PIN {pin}",
       seeAllMedicines: "See all medicines matching “{q}”",
       clear: "Clear search",
-      close: "Close search",
     },
     footer: {
       tagline:
         "Every price on this site is a range with a visible source and date — never a single made-up number.",
-      explore: "Explore",
-      tools: "Tools",
-      about: "About",
       credit: "Built by Anshul",
       colTreatment: "Treatment costs",
       colMedicines: "Medicines",
@@ -120,66 +115,10 @@ export const translations = {
       dark: "Dark",
     },
     home: {
-      eyebrow: "Medical price transparency for India",
       title: "Was your hospital bill fair?",
-      subtitle:
-        "Check a hospital's quote before you agree to it, or check the medicines on a bill you've already paid, against government reference prices. Every number shows its source.",
-      actionQuoteTitle: "Check a hospital quote",
-      actionQuoteBody: "Compare an estimate with the market range, hospital-wise prices and the CGHS rate.",
-      actionBillTitle: "Check a medicine bill",
-      actionBillBody: "Photograph a bill. We flag lines above the NPPA ceiling and show the Jan Aushadhi price.",
       actionPrivate: "Read on your device, never uploaded",
-      orSearch: "Or look up what a procedure costs in Bangalore",
-      actionShareTitle: "Share your bill",
-      actionShareBody: "Tell us what you were quoted and what you paid. Anonymous, two minutes.",
       sourcesLabel: "Reference prices from CGHS, NPPA, Jan Aushadhi and HexaHealth.",
-      howWeWork: "How we get prices",
-      statProcedures: "{n} procedures priced",
-      statHospitals: "2,684 network hospitals",
-      statCities: "{n} cities",
-      exampleEyebrow: "Example — real data",
-      exampleTitleSuffix: "in Bangalore",
-      marketRange: "Market range",
-      sourceHexaHealth: "Source: HexaHealth",
-      hospitalsPriced: "Hospitals priced",
-      namedHospitals: "Named hospitals in this range",
-      govReference: "Government (CGHS) reference",
-      notAvailable: "Not available",
-      tierNote: "Tier I, NABH, general ward",
-      seeComparison: "See the full hospital comparison",
-      featuresHeading: "How this is different from a listing site",
-      features: [
-        {
-          title: "Government reference rates",
-          body: "Every priced procedure is checked against the CGHS Tier I rate — the same benchmark the government uses for its own hospital reimbursements.",
-        },
-        {
-          title: "Real hospital-wise ranges",
-          body: "Where the data exists, prices are shown per hospital, not just per city — so you can see how one hospital compares to another for the same procedure.",
-        },
-        {
-          title: "No point claims, ever",
-          body: "Every number is a range with a visible source and date. We never publish a single made-up figure for what a hospital “charges.”",
-        },
-        {
-          title: "One rate per procedure",
-          body: "Unlike US price transparency data, Indian pricing isn’t split by insurance plan or payer — just a procedure and a rate, which is what we show.",
-        },
-        {
-          title: "2,684 network hospitals",
-          body: "A directory of cashless-network hospitals across six metros, mapped and searchable, with bed and ICU capacity where available.",
-        },
-        {
-          title: "Built to be corrected",
-          body: "Every hospital and rate page carries a methodology link and a correction channel. If something’s wrong, we want to know.",
-        },
-      ],
       ctaHeading: "Paid a hospital bill recently?",
-      ctaBody:
-        "Share what you were quoted and what you paid. It's anonymous, takes two minutes, and gives the next family something real to compare with.",
-      ctaButton: "Share your bill",
-      searchPlaceholder: "Search a procedure — e.g. Knee Replacement, Kidney Transplant...",
-      searchNoMatch: 'No priced procedures match "{q}" yet.',
       lead: "Check what a hospital or pharmacy is charging against public prices, each with its source and date.",
       tasksHeading: "What do you want to do?",
       tileQuoteBody: "Compare it with market estimates for Bangalore.",
@@ -198,8 +137,6 @@ export const translations = {
       subtitle:
         "{n} procedures with a market price range, sourced from HexaHealth and checked against the CGHS government reference rate where a confident match exists.",
       filterPlaceholder: "e.g. knee, cataract, hernia",
-      hospitalsPricedBadge: "{n} hospitals priced",
-      cghsReferenceBadge: "CGHS reference",
       noMatch: 'No procedures match "{q}".',
       filterLabel: "Find a treatment",
       quoteTileBody: "Got a quote or a final bill? See where it sits.",
@@ -224,24 +161,12 @@ export const translations = {
     },
     procedure: {
       back: "Treatment costs",
-      titleSuffix: "in Bangalore",
       marketRange: "Market estimate",
-      sourceLabel: "Source:",
-      editorialNote: "— editorial market estimate, not a billed amount.",
-      govRefTitle: "Government (CGHS) reference — Tier I",
-      generalWardNabh: "general ward, NABH",
       matchedLine: "Matched CGHS line item:",
-      wardBreakdown: "Semi-private {sp}, private {p}.",
       noCghsMatch:
         "No confident government (CGHS) match for this treatment. We only show one when we're sure it is the same treatment.",
-      methodologyLink: "methodology",
-      comparisonHeading: "Hospital-wise price comparison",
       noHospitalData:
         "No hospital-specific breakdown is available for this procedure yet — only the city-wide market range above.",
-      colHospital: "Hospital",
-      colMin: "Min",
-      colAvg: "Avg",
-      colMax: "Max",
       footerNote:
         "These are editorial market estimates, not confirmed billed amounts — treat them as a starting point for comparison, not a quote.",
       checkQuote: "Check a quote or bill for this",
@@ -261,7 +186,6 @@ export const translations = {
       shareRow: "Had this treatment? Share your bill",
     },
     rates: {
-      eyebrow: "Rate Explorer",
       title: "Govt (CGHS) rates",
       subtitle:
         "{n} line items across {m} specialties from the Central Government Health Scheme list, Tier I (Bangalore). This is what the government pays hospitals, not necessarily what a private hospital charges.",
@@ -272,11 +196,9 @@ export const translations = {
       matchingRows: "{n} matching rows",
       colCode: "Code",
       colProcedure: "Procedure",
-      colNabh: "NABH",
       colGeneral: "General",
       colSemiPrivate: "Semi-private",
       colPrivate: "Private",
-      loadMore: "Load {n} more",
       lead: "What the government pays hospitals under CGHS (Tier I). Private hospitals usually charge more, so treat this as a floor, not a fair price.",
       about: "About these rates",
       searchLabel: "Search a treatment or CGHS code",
@@ -288,10 +210,10 @@ export const translations = {
       whatNabhBody:
         "NABH is a national quality accreditation for hospitals. CGHS pays accredited hospitals a higher rate.",
       codeLabel: "Code {code}",
+      loadFailed: "We couldn't load the rates. Check your connection, then tap the search box to try again.",
     },
     hospitals: {
       title: "Find a hospital",
-      subtitle: "2,684 hospitals from the Bajaj Allianz cashless network directory, across six metros.",
       count: "{n} hospitals",
       lead: "{n} hospitals in {c} cities, from the Bajaj Allianz cashless network list. Being listed is not a recommendation.",
       whatIsList: "What is this list?",
@@ -302,10 +224,7 @@ export const translations = {
       pricesAvailable: "Treatment prices available",
     },
     city: {
-      titleSuffix: "network hospitals",
       subtitle: "{n} hospitals in the Bajaj Allianz cashless network.",
-      searchPlaceholder: "Search by hospital name, area, or PIN code...",
-      shownCount: "{shown} of {total} shown",
       noMatch: "No hospitals match.",
       title: "Hospitals in {city}",
       searchLabel: "Search by name, area or PIN",
@@ -320,6 +239,7 @@ export const translations = {
       pricesBadge: "Prices",
       mapLoading: "Loading map…",
       mapFailed: "The map couldn't load on this device. The list still works.",
+      notOnMap: "{n} of these hospitals have no map location, so they are only in the list.",
       viewHospital: "View hospital",
     },
     hospital: {
@@ -331,10 +251,6 @@ export const translations = {
       pincode: "Pincode",
       rohiniCode: "Rohini code",
       proceduresHeading: "Treatment prices at this hospital",
-      procedureColumn: "Procedure",
-      noProceduresPre: "No procedure pricing linked to this specific hospital yet — browse",
-      allProcedures: "all priced procedures",
-      noProceduresPost: "for Bangalore market ranges.",
       kendrasHeading: "Jan Aushadhi stores near this hospital",
       kendrasSamePin: "Same PIN code ({pin})",
       kendrasSameArea: "Same postal area (PIN {area}xxx)",
@@ -355,10 +271,7 @@ export const translations = {
       shareHere: "Treated here? Share your bill anonymously",
     },
     medicines: {
-      eyebrow: "Medicine prices",
       title: "Find a cheaper medicine",
-      subtitle:
-        "Search a brand (Pan 40, Dolo 650) or a salt (pantoprazole). We show the government Jan Aushadhi generic with the same salt, strength and form, the NPPA ceiling price where one exists, and the cheapest brands.",
       searchPlaceholder: "Brand or salt, e.g. Pan 40 or pantoprazole",
       searchHint: "Type at least 3 letters.",
       searching: "Searching…",
@@ -370,7 +283,6 @@ export const translations = {
       noJaPrice: "No Jan Aushadhi price",
       coverage:
         "Covers {n} tablet and capsule compositions that have a Jan Aushadhi product or an NPPA ceiling price. Syrups, injections and creams aren't included yet.",
-      findKendra: "Find a Jan Aushadhi store",
       back: "Medicines",
       contains: "Contains",
       form: { tablet: "Tablet", capsule: "Capsule" },
@@ -382,15 +294,14 @@ export const translations = {
         chewable: "Chewable",
         effervescent: "Effervescent",
       },
-      savingsLine:
-        "The Jan Aushadhi generic costs {ja} per {unit}; the median brand was {brand} per {unit} in 2022. That's about {pct}% less.",
       savingsCaveat: "The two prices are from different years, so treat the saving as approximate.",
       unit: { tablet: "tablet", capsule: "capsule" },
       jaHeading: "Jan Aushadhi generic",
       jaPack: "Pack: {size} · MRP {mrp}",
+      jaCode: "PMBJP code {code}",
       jaPerUnit: "{price} per {unit}",
       jaNoPrice: "Listed by PMBJP without a published price.",
-      jaSource: "Source: PMBJP product list, {date}.",
+      jaSourceName: "PMBJP product list",
       jaNone: "No Jan Aushadhi product with exactly this composition.",
       nppaHeading: "Legal ceiling price (NPPA)",
       nppaPrice: "{price} per {unit}, excluding GST",
@@ -399,13 +310,9 @@ export const translations = {
       nppaNone: "Not under NPPA price control. Brands set their own price.",
       brandsHeading: "Brands with the same composition",
       brandsShowing: "Cheapest {shown} of {total} brands.",
-      brandsSource: "Listed MRP from the {name}, {date} snapshot ({license}). Today's price may differ.",
+      brandsQualifier: "Listed MRP, today's price may differ · {license}",
       brandsNone: "We have no brand prices for this composition.",
-      colBrand: "Brand",
-      colMaker: "Manufacturer",
-      colPack: "Pack",
       colPackPrice: "Pack MRP",
-      colPerUnit: "Per unit",
       relatedStrengths: "Same salts, different strength",
       relatedExtraSalt: "Same salts plus another medicine",
       relatedNote: "These are different medicines. Only your doctor can say whether one can replace another.",
@@ -446,9 +353,6 @@ export const translations = {
     },
     kendras: {
       title: "Find a Jan Aushadhi store",
-      subtitle:
-        "Pradhan Mantri Bhartiya Janaushadhi Kendras sell government generic medicines at fixed low prices. Enter a 6-digit PIN code to list stores in that postal area.",
-      pinPlaceholder: "6-digit PIN code",
       search: "Find stores",
       invalidPin: "Enter a 6-digit PIN code, like 560034.",
       results: "{n} stores in postal area {area}xxx, nearest PIN first",
@@ -477,6 +381,7 @@ export const translations = {
       sourceDated:
         "Source: Google reviews, fetched {date}. Authors retain their own words.",
       readMore: "Read more",
+      readLess: "Show less",
       // Not in §8.2: §6 asks for a per-review "4 of 5" next to the stars.
       ratingOf: "{rating} of 5",
     },
@@ -486,16 +391,11 @@ export const translations = {
       methodologyLink: "How the checks work",
     },
     quote: {
-      eyebrow: "Quote checker · Bangalore",
       title: "Check a hospital quote or bill",
-      subtitle:
-        "Pick the procedure and type the amount the hospital quoted. We place it against the Bangalore market range, the hospital-wise prices we have, and the CGHS government rate.",
       procedureLabel: "Which treatment?",
-      procedurePlaceholder: "Choose a procedure…",
       amountLabel: "How much did the hospital quote?",
       wardLabel: "Which room is the price for?",
       ward: { general: "General ward", semiPrivate: "Semi-private", private: "Private", notSure: "Not sure" },
-      wardNoCghs: "No CGHS rate for this procedure, so room type doesn't change the result.",
       verdict: {
         below: "This amount is below the lowest market estimate we have for {proc}.",
         lowerHalf: "This amount is in the lower half of the market estimate for {proc}.",
@@ -503,8 +403,6 @@ export const translations = {
         above: "This amount is above the highest market estimate we have for {proc}.",
         unknown: "We don't have a market range for {proc} yet.",
       },
-      rangeHeading: "Bangalore market range",
-      rangeSource: "Editorial market estimate, not a billed amount. Source:",
       hospitalsHeading: "Hospitals we have prices for",
       hospitalsBelow: "{below} of {n} hospitals list a typical price below this amount.",
       hospitalsNone: "No hospital-wise prices for this procedure yet.",
@@ -514,7 +412,6 @@ export const translations = {
       cghsExplain:
         "CGHS is what the government pays empanelled hospitals, so private quotes are usually higher. It is a floor to compare with, not a fair price.",
       cghsNone: "No confident CGHS match for this procedure.",
-      askHeading: "Before you agree, ask the hospital",
       askList: [
         "Is this a package price? What exactly does it include: room, surgeon and anaesthetist fees, implants, medicines, consumables, tests?",
         "How many days in hospital and in ICU is the quote based on, and what does each extra day cost?",
@@ -550,7 +447,6 @@ export const translations = {
       highEnd: "Highest estimate",
       whatToDo: "What you can do",
       belowTip: "Ask what this price leaves out, such as implants, medicines or extra days.",
-      askHeadingBill: "Ask the hospital for an explanation",
       askListBill: [
         "Ask for an itemised final bill, with room, doctor fees, implants, medicines, consumables and tests listed separately.",
         "Compare it line by line with the estimate you were given before admission.",
@@ -566,12 +462,7 @@ export const translations = {
       sharePaid: "Paid already? Share your bill",
     },
     bill: {
-      eyebrow: "Bill checker · Medicines",
       title: "Check a medicine bill",
-      subtitle:
-        "Photograph a pharmacy or hospital bill, or type the lines in. For every tablet or capsule we can match, we compare what you paid per unit with the NPPA ceiling price and the Jan Aushadhi generic.",
-      scanButton: "Photograph a bill",
-      or: "or",
       addLine: "Add a line",
       privacy: "The photo is read on your device and never uploaded. Nothing you type leaves your browser.",
       scanFound:
@@ -627,7 +518,6 @@ export const translations = {
       brandCredit: "Brand MRP: {name}, {date} ({license}).",
     },
     share: {
-      eyebrow: "Share your bill",
       title: "What did your hospital actually charge?",
       subtitle:
         "Tell us what you were quoted and what you finally paid. It takes about two minutes, and it helps the next family walk in knowing what to expect.",
@@ -635,15 +525,7 @@ export const translations = {
       promiseNoName: "We never ask your name or phone",
       promiseHospital: "Your hospital is never shown publicly",
       notOpen: "Bill sharing opens shortly. You can look through the form, but submissions aren't being accepted yet.",
-      progressLabel: "Form progress",
       stepOf: "Step {n} of {total}",
-      steps: {
-        what: "What and where",
-        stay: "The stay",
-        money: "The money",
-        breakdown: "The breakdown (optional)",
-        review: "Check and send",
-      },
       q: {
         category: "What kind of treatment was it?",
         procedure: "Which procedure?",
@@ -651,6 +533,7 @@ export const translations = {
         procedurePlaceholder: "Choose a procedure…",
         procedureOther: "Not in this list — I'll type it",
         procedureOtherPlaceholder: "e.g. Gallbladder removal (laparoscopic)",
+        procedureOtherLabel: "Name of the treatment",
         city: "Which city?",
         cityOther: "Another city",
         cityOtherPlaceholder: "City name",
@@ -658,7 +541,7 @@ export const translations = {
         hospitalHint: "Helps us check reports are genuine. It is never shown on the site.",
         hospitalSearch: "Start typing the hospital name…",
         hospitalFreeText: "Hospital name",
-        hospitalNotListed: "Not in the list? Just leave what you typed.",
+        hospitalOther: "My hospital isn't in this list",
         hospitalType: "What type of hospital?",
         month: "When was the treatment?",
         monthPlaceholder: "Month",
@@ -683,6 +566,7 @@ export const translations = {
         surprises: "Charges that surprised you",
         surprisesHint: "Anything you didn't expect or that looked overpriced, e.g. a ₹1,200 pair of gloves.",
         surpriseItem: "What it was for",
+        surpriseAmount: "Amount",
         addSurprise: "Add a charge",
       },
       category: {
@@ -715,7 +599,6 @@ export const translations = {
         employer: "Employer",
         other: "Other",
       },
-      optional: "Optional",
       component: {
         room: "Room charges",
         icu: "ICU charges",
@@ -769,7 +652,6 @@ export const translations = {
         generic: "Something went wrong sending your bill. Check your connection and try again.",
       },
       back: "Back",
-      next: "Next",
       skip: "Skip this step",
       submit: "Share my bill",
       sending: "Sending…",
@@ -785,8 +667,6 @@ export const translations = {
         heading: "What patients have reported",
         rule: "Shown only for a city + procedure with at least {n} checked bills from {b} different people. Hospitals are never named.",
         approved: "checked bills so far",
-        colProcedure: "Procedure · city",
-        colTypical: "Typical final bill",
         bills: "{n} bills",
         unverified: "Patient-reported and not independently verified. A guide, not a quote.",
         progress: "{proc}, {city}: {n} of {total} bills",
@@ -833,7 +713,7 @@ export const translations = {
         "Karnataka’s KPME registry publishes statutory, per-establishment rate filings — the closest thing to real hospital-specific pricing available in India. We’re evaluating whether enough hospitals have actually filed usable rate cards before building it into this site.",
       medHeading: "Medicine prices",
       medBody1:
-        "Medicines are grouped only when salts, strengths, form (tablet or capsule) and release type are all exactly the same. Sustained-release never groups with ordinary tablets, and a brand that lists only part of its composition is left out rather than guessed. Salt forms are reduced to the active medicine (pantoprazole sodium → pantoprazole), except where the salt changes the product, such as metoprolol succinate vs tartrate.",
+        "Medicines are grouped only when salts, strengths, form (tablet or capsule) and release type are all exactly the same. Sustained-release never groups with ordinary tablets, and a brand that lists only part of its composition is left out rather than guessed. Salt forms are reduced to the active medicine (pantoprazole sodium is treated as pantoprazole), except where the salt changes the product, such as metoprolol succinate vs tartrate.",
       medBody2:
         "Jan Aushadhi prices come from the PMBJP product list. Ceiling prices come from NPPA's notified list and exclude GST. Brand prices are listed MRPs from the A-Z Medicine Dataset of India (Kaggle, CC BY-SA 4.0), a November 2022 snapshot. They are shown with that date and are not current shop prices. The medicine data on this site is shared under the same CC BY-SA 4.0 licence. Salt names are checked against NRCeS Common Drug Codes for India (C-DAC, CC BY 4.0).",
       medBody3:
@@ -877,7 +757,6 @@ export const translations = {
       methodology: "हम कीमतें कहाँ से लेते हैं",
       medicines: "दवाइयाँ",
       kendras: "जन औषधि केंद्र खोजें",
-      findPrice: "कीमत खोजें",
       checkBill: "दवा का बिल जाँचें",
       checkQuote: "अस्पताल का कोटेशन या बिल जाँचें",
       shareBill: "अपना बिल साझा करें",
@@ -906,7 +785,6 @@ export const translations = {
     },
     common: {
       showMore: "{n} और दिखाएँ",
-      showAll: "सभी {n} दिखाएँ",
       change: "बदलें",
       details: "विवरण",
       call: "कॉल करें",
@@ -948,14 +826,10 @@ export const translations = {
       pinRow: "पिन {pin} के जन औषधि केंद्र",
       seeAllMedicines: "“{q}” से मिलती सभी दवाइयाँ देखें",
       clear: "खोज मिटाएँ",
-      close: "खोज बंद करें",
     },
     footer: {
       tagline:
         "इस साइट पर हर कीमत एक दायरा (रेंज) है, जिसका स्रोत और तारीख साफ़ लिखी है — कभी भी कोई मनगढ़ंत संख्या नहीं।",
-      explore: "एक्सप्लोर करें",
-      tools: "टूल",
-      about: "बारे में",
       credit: "अंशुल द्वारा निर्मित",
       colTreatment: "इलाज का खर्च",
       colMedicines: "दवाइयाँ",
@@ -972,66 +846,10 @@ export const translations = {
       dark: "गहरा",
     },
     home: {
-      eyebrow: "भारत में चिकित्सा मूल्य पारदर्शिता",
       title: "क्या आपका अस्पताल बिल सही था?",
-      subtitle:
-        "हामी भरने से पहले अस्पताल का कोटेशन जाँचें, या चुकाए गए बिल की दवाइयाँ सरकारी संदर्भ कीमतों से जाँचें। हर संख्या के साथ उसका स्रोत दिखता है।",
-      actionQuoteTitle: "अस्पताल का कोटेशन जाँचें",
-      actionQuoteBody: "अनुमान की तुलना बाज़ार सीमा, अस्पताल-वार कीमतों और CGHS दर से करें।",
-      actionBillTitle: "दवा का बिल जाँचें",
-      actionBillBody: "बिल की फ़ोटो लें। हम NPPA अधिकतम मूल्य से ऊपर की लाइनें दिखाते हैं और जन औषधि की कीमत बताते हैं।",
       actionPrivate: "आपके डिवाइस पर पढ़ा जाता है, कभी अपलोड नहीं",
-      orSearch: "या देखें कि बैंगलोर में किसी प्रक्रिया का कितना खर्च है",
-      actionShareTitle: "अपना बिल साझा करें",
-      actionShareBody: "बताएँ कि अनुमान कितना था और कितना चुकाया। गुमनाम, दो मिनट।",
       sourcesLabel: "संदर्भ कीमतें CGHS, NPPA, जन औषधि और HexaHealth से।",
-      howWeWork: "हम कीमतें कहाँ से लेते हैं",
-      statProcedures: "{n} प्रक्रियाओं की कीमत उपलब्ध",
-      statHospitals: "2,684 नेटवर्क अस्पताल",
-      statCities: "{n} शहर",
-      exampleEyebrow: "उदाहरण — वास्तविक डेटा",
-      exampleTitleSuffix: "बैंगलोर में",
-      marketRange: "बाजार सीमा",
-      sourceHexaHealth: "स्रोत: HexaHealth",
-      hospitalsPriced: "मूल्य वाले अस्पताल",
-      namedHospitals: "इस सीमा में नामित अस्पताल",
-      govReference: "सरकारी (CGHS) संदर्भ",
-      notAvailable: "उपलब्ध नहीं",
-      tierNote: "टियर I, NABH, सामान्य वार्ड",
-      seeComparison: "पूरी अस्पताल तुलना देखें",
-      featuresHeading: "यह एक साधारण लिस्टिंग साइट से कैसे अलग है",
-      features: [
-        {
-          title: "सरकारी संदर्भ दरें",
-          body: "हर मूल्य वाली प्रक्रिया की जांच CGHS टियर I दर से की जाती है — वही मानक जो सरकार अपने अस्पताल प्रतिपूर्ति के लिए उपयोग करती है।",
-        },
-        {
-          title: "वास्तविक अस्पताल-वार सीमाएं",
-          body: "जहां डेटा उपलब्ध है, कीमतें प्रति शहर नहीं बल्कि प्रति अस्पताल दिखाई जाती हैं — ताकि आप एक ही प्रक्रिया के लिए अस्पतालों की तुलना कर सकें।",
-        },
-        {
-          title: "कभी भी अनुमानित दावे नहीं",
-          body: "हर संख्या एक सीमा है जिसका स्रोत और तारीख स्पष्ट है। हम कभी भी किसी अस्पताल के “शुल्क” के लिए एक मनगढ़ंत आंकड़ा प्रकाशित नहीं करते।",
-        },
-        {
-          title: "प्रति प्रक्रिया एक ही दर",
-          body: "अमेरिकी मूल्य पारदर्शिता डेटा के विपरीत, भारतीय मूल्य निर्धारण बीमा योजना या भुगतानकर्ता के अनुसार विभाजित नहीं है — बस एक प्रक्रिया और एक दर, जो हम दिखाते हैं।",
-        },
-        {
-          title: "2,684 नेटवर्क अस्पताल",
-          body: "छह महानगरों में कैशलेस-नेटवर्क अस्पतालों की एक निर्देशिका, मैप की गई और खोजने योग्य, जहां उपलब्ध हो वहां बेड और ICU क्षमता के साथ।",
-        },
-        {
-          title: "सुधार के लिए बनाया गया",
-          body: "हर अस्पताल और दर पृष्ठ पर एक पद्धति लिंक और सुधार चैनल है। अगर कुछ गलत है, तो हम जानना चाहते हैं।",
-        },
-      ],
       ctaHeading: "हाल ही में अस्पताल का बिल चुकाया?",
-      ctaBody:
-        "बताएँ कि अनुमान कितना था और कितना चुकाया। यह गुमनाम है, दो मिनट लगते हैं, और अगले परिवार को तुलना के लिए कुछ असली मिलता है।",
-      ctaButton: "अपना बिल साझा करें",
-      searchPlaceholder: "एक प्रक्रिया खोजें — जैसे घुटना प्रतिस्थापन, किडनी प्रत्यारोपण...",
-      searchNoMatch: '"{q}" से मेल खाती कोई मूल्य वाली प्रक्रिया अभी उपलब्ध नहीं है।',
       lead: "अस्पताल या दवा की दुकान जो पैसे ले रही है, उसे सार्वजनिक कीमतों से मिलाएँ। हर कीमत के साथ उसका स्रोत और तारीख है।",
       tasksHeading: "आप क्या करना चाहते हैं?",
       tileQuoteBody: "इसे बैंगलोर के बाज़ार अनुमानों से मिलाएँ।",
@@ -1050,8 +868,6 @@ export const translations = {
       subtitle:
         "{n} इलाज, जिनकी बाज़ार कीमत का दायरा (रेंज) HexaHealth से लिया गया है, और जहाँ पक्का मिलान है वहाँ CGHS सरकारी दर से जाँचा गया है।",
       filterPlaceholder: "जैसे घुटना, मोतियाबिंद, हर्निया",
-      hospitalsPricedBadge: "{n} अस्पतालों की कीमत",
-      cghsReferenceBadge: "CGHS संदर्भ",
       noMatch: '"{q}" से कोई इलाज मेल नहीं खाता।',
       filterLabel: "इलाज खोजें",
       quoteTileBody: "कोटेशन या अंतिम बिल मिला है? देखें कि वह कहाँ आता है।",
@@ -1076,24 +892,12 @@ export const translations = {
     },
     procedure: {
       back: "इलाज का खर्च",
-      titleSuffix: "बैंगलोर में",
       marketRange: "बाज़ार अनुमान",
-      sourceLabel: "स्रोत:",
-      editorialNote: "— संपादकीय बाजार अनुमान, बिल की गई राशि नहीं।",
-      govRefTitle: "सरकारी (CGHS) संदर्भ — टियर I",
-      generalWardNabh: "सामान्य वार्ड, NABH",
       matchedLine: "मिलान किया गया CGHS लाइन आइटम:",
-      wardBreakdown: "सेमी-प्राइवेट {sp}, प्राइवेट {p}।",
       noCghsMatch:
         "इस इलाज के लिए कोई पक्का सरकारी (CGHS) मिलान नहीं है। हम मिलान तभी दिखाते हैं जब हमें यकीन हो कि यह वही इलाज है।",
-      methodologyLink: "पद्धति",
-      comparisonHeading: "अस्पताल-वार मूल्य तुलना",
       noHospitalData:
         "इस इलाज के लिए अभी अस्पताल-वार कीमतें उपलब्ध नहीं हैं — सिर्फ़ ऊपर दिया गया पूरे शहर का बाज़ार अनुमान।",
-      colHospital: "अस्पताल",
-      colMin: "न्यूनतम",
-      colAvg: "औसत",
-      colMax: "अधिकतम",
       footerNote:
         "ये संपादकीय बाजार अनुमान हैं, पुष्ट बिल की गई राशि नहीं — इन्हें तुलना के लिए एक शुरुआती बिंदु मानें, उद्धरण नहीं।",
       checkQuote: "इसका कोटेशन या बिल जाँचें",
@@ -1113,7 +917,6 @@ export const translations = {
       shareRow: "यह इलाज हुआ है? अपना बिल साझा करें",
     },
     rates: {
-      eyebrow: "दर एक्सप्लोरर",
       title: "सरकारी (CGHS) दरें",
       subtitle:
         "केंद्र सरकार स्वास्थ्य योजना (CGHS) की सूची से {m} विशेषज्ञताओं में {n} मद, टियर I (बैंगलोर)। यह वह रकम है जो सरकार अस्पतालों को देती है; ज़रूरी नहीं कि निजी अस्पताल भी इतना ही लें।",
@@ -1124,11 +927,9 @@ export const translations = {
       matchingRows: "{n} मेल खाती पंक्तियां",
       colCode: "कोड",
       colProcedure: "इलाज",
-      colNabh: "NABH",
       colGeneral: "सामान्य",
       colSemiPrivate: "सेमी-प्राइवेट",
       colPrivate: "प्राइवेट",
-      loadMore: "{n} और लोड करें",
       lead: "CGHS के तहत सरकार अस्पतालों को जितना देती है (टियर I)। निजी अस्पताल आम तौर पर ज़्यादा लेते हैं, इसलिए इसे सबसे निचली रकम मानें, सही कीमत नहीं।",
       about: "इन दरों के बारे में",
       searchLabel: "इलाज या CGHS कोड खोजें",
@@ -1140,10 +941,10 @@ export const translations = {
       whatNabhBody:
         "NABH अस्पतालों की एक राष्ट्रीय गुणवत्ता मान्यता है। CGHS मान्यता वाले अस्पतालों को ज़्यादा दर देता है।",
       codeLabel: "कोड {code}",
+      loadFailed: "दरें लोड नहीं हो सकीं। इंटरनेट कनेक्शन जाँचें, फिर दोबारा कोशिश करने के लिए खोज बॉक्स पर टैप करें।",
     },
     hospitals: {
       title: "अस्पताल खोजें",
-      subtitle: "छह महानगरों में Bajaj Allianz कैशलेस नेटवर्क निर्देशिका से 2,684 अस्पताल।",
       count: "{n} अस्पताल",
       lead: "Bajaj Allianz की कैशलेस नेटवर्क सूची से, {c} शहरों के {n} अस्पताल। सूची में होना कोई सिफ़ारिश नहीं है।",
       whatIsList: "यह सूची क्या है?",
@@ -1154,10 +955,7 @@ export const translations = {
       pricesAvailable: "इलाज की कीमतें उपलब्ध",
     },
     city: {
-      titleSuffix: "नेटवर्क अस्पताल",
       subtitle: "Bajaj Allianz कैशलेस नेटवर्क में {n} अस्पताल।",
-      searchPlaceholder: "अस्पताल के नाम, क्षेत्र, या पिन कोड से खोजें...",
-      shownCount: "{total} में से {shown} दिखाए गए",
       noMatch: "कोई अस्पताल मेल नहीं खाता।",
       title: "{city} के अस्पताल",
       searchLabel: "नाम, इलाके या पिन कोड से खोजें",
@@ -1172,6 +970,7 @@ export const translations = {
       pricesBadge: "कीमतें",
       mapLoading: "नक्शा लोड हो रहा है…",
       mapFailed: "इस डिवाइस पर नक्शा नहीं खुल सका। सूची फिर भी काम करती है।",
+      notOnMap: "इनमें से {n} अस्पतालों की जगह नक्शे पर नहीं है, इसलिए वे सिर्फ़ सूची में हैं।",
       viewHospital: "अस्पताल देखें",
     },
     hospital: {
@@ -1183,10 +982,6 @@ export const translations = {
       pincode: "पिनकोड",
       rohiniCode: "रोहिणी कोड",
       proceduresHeading: "इस अस्पताल में इलाज की कीमतें",
-      procedureColumn: "प्रक्रिया",
-      noProceduresPre: "अभी इस विशेष अस्पताल से जुड़ी कोई प्रक्रिया मूल्य निर्धारण नहीं है — ब्राउज़ करें",
-      allProcedures: "सभी मूल्य वाली प्रक्रियाएं",
-      noProceduresPost: "बैंगलोर बाजार सीमाओं के लिए।",
       kendrasHeading: "इस अस्पताल के पास जन औषधि केंद्र",
       kendrasSamePin: "वही पिन कोड ({pin})",
       kendrasSameArea: "वही डाक क्षेत्र (पिन {area}xxx)",
@@ -1207,10 +1002,7 @@ export const translations = {
       shareHere: "यहाँ इलाज हुआ? अपना बिल बिना नाम के साझा करें",
     },
     medicines: {
-      eyebrow: "दवाओं की कीमतें",
       title: "सस्ती दवा खोजें",
-      subtitle:
-        "कोई ब्रांड (Pan 40, Dolo 650) या साल्ट (pantoprazole) खोजें। हम उसी साल्ट, ताकत और रूप वाली सरकारी जन औषधि जेनेरिक, जहां लागू हो वहां NPPA का अधिकतम मूल्य, और सबसे सस्ते ब्रांड दिखाते हैं।",
       searchPlaceholder: "ब्रांड या साल्ट, जैसे Pan 40 या pantoprazole",
       searchHint: "कम से कम 3 अक्षर लिखें।",
       searching: "खोज रहे हैं…",
@@ -1222,7 +1014,6 @@ export const translations = {
       noJaPrice: "जन औषधि कीमत नहीं",
       coverage:
         "इसमें {n} गोली और कैप्सूल संरचनाएं शामिल हैं जिनका जन औषधि उत्पाद या NPPA की अधिकतम कीमत है। सिरप, इंजेक्शन और क्रीम अभी शामिल नहीं हैं।",
-      findKendra: "जन औषधि केंद्र खोजें",
       back: "दवाइयाँ",
       contains: "संरचना",
       form: { tablet: "गोली", capsule: "कैप्सूल" },
@@ -1234,15 +1025,14 @@ export const translations = {
         chewable: "चबाने वाली",
         effervescent: "पानी में घुलने वाली (इफ़रवेसेंट)",
       },
-      savingsLine:
-        "जन औषधि जेनेरिक की कीमत {ja} प्रति {unit} है; 2022 में मीडियन ब्रांड {brand} प्रति {unit} था। यानी लगभग {pct}% कम।",
       savingsCaveat: "दोनों कीमतें अलग-अलग वर्षों की हैं, इसलिए बचत को अनुमानित मानें।",
       unit: { tablet: "गोली", capsule: "कैप्सूल" },
       jaHeading: "जन औषधि जेनेरिक",
       jaPack: "पैक: {size} · MRP {mrp}",
+      jaCode: "PMBJP कोड {code}",
       jaPerUnit: "{price} प्रति {unit}",
       jaNoPrice: "PMBJP ने इसे बिना प्रकाशित कीमत के सूचीबद्ध किया है।",
-      jaSource: "स्रोत: PMBJP उत्पाद सूची, {date}।",
+      jaSourceName: "PMBJP दवा सूची",
       jaNone: "ठीक इसी संरचना वाला कोई जन औषधि उत्पाद नहीं है।",
       nppaHeading: "क़ानूनी अधिकतम कीमत (NPPA)",
       nppaPrice: "{price} प्रति {unit}, GST को छोड़कर",
@@ -1251,13 +1041,9 @@ export const translations = {
       nppaNone: "NPPA के कीमत नियंत्रण में नहीं। ब्रांड अपनी कीमत खुद तय करते हैं।",
       brandsHeading: "समान संरचना वाले ब्रांड",
       brandsShowing: "{total} में से सबसे सस्ते {shown} ब्रांड।",
-      brandsSource: "{name} से सूचीबद्ध MRP, {date} स्नैपशॉट ({license})। आज की कीमत अलग हो सकती है।",
+      brandsQualifier: "सूची में दी गई MRP, आज की कीमत अलग हो सकती है · {license}",
       brandsNone: "इस संरचना के लिए हमारे पास ब्रांड कीमतें नहीं हैं।",
-      colBrand: "ब्रांड",
-      colMaker: "निर्माता",
-      colPack: "पैक",
       colPackPrice: "पैक MRP",
-      colPerUnit: "प्रति यूनिट",
       relatedStrengths: "वही साल्ट, अलग ताकत",
       relatedExtraSalt: "वही साल्ट और एक अन्य दवा",
       relatedNote: "ये अलग दवाइयां हैं। केवल आपके डॉक्टर बता सकते हैं कि एक दूसरी की जगह ले सकती है या नहीं।",
@@ -1298,9 +1084,6 @@ export const translations = {
     },
     kendras: {
       title: "जन औषधि केंद्र खोजें",
-      subtitle:
-        "प्रधानमंत्री भारतीय जनऔषधि केंद्र तय कम कीमतों पर सरकारी जेनेरिक दवाइयां बेचते हैं। उस डाक क्षेत्र के केंद्र देखने के लिए 6 अंकों का पिन कोड डालें।",
-      pinPlaceholder: "6 अंकों का पिन कोड",
       search: "केंद्र खोजें",
       invalidPin: "6 अंकों का पिन कोड लिखें, जैसे 560034।",
       results: "डाक क्षेत्र {area}xxx में {n} केंद्र, सबसे नज़दीकी पिन पहले",
@@ -1329,6 +1112,7 @@ export const translations = {
       sourceDated:
         "स्रोत: Google समीक्षाएं, {date} को ली गईं। शब्द उनके लेखकों के हैं।",
       readMore: "पूरा पढ़ें",
+      readLess: "कम दिखाएँ",
       ratingOf: "5 में से {rating}",
     },
     check: {
@@ -1337,16 +1121,11 @@ export const translations = {
       methodologyLink: "जाँच कैसे होती है",
     },
     quote: {
-      eyebrow: "कोटेशन जाँच · बैंगलोर",
       title: "अस्पताल का कोटेशन या बिल जाँचें",
-      subtitle:
-        "प्रक्रिया चुनें और अस्पताल द्वारा बताई गई राशि लिखें। हम इसे बैंगलोर की बाज़ार सीमा, हमारे पास मौजूद अस्पताल-वार कीमतों और CGHS सरकारी दर से मिलाते हैं।",
       procedureLabel: "कौन-सा इलाज?",
-      procedurePlaceholder: "प्रक्रिया चुनें…",
       amountLabel: "अस्पताल ने कितनी रकम बताई?",
       wardLabel: "यह कीमत किस कमरे के लिए है?",
       ward: { general: "जनरल वार्ड", semiPrivate: "सेमी-प्राइवेट", private: "प्राइवेट", notSure: "पक्का नहीं पता" },
-      wardNoCghs: "इस प्रक्रिया की CGHS दर नहीं है, इसलिए कमरे के प्रकार से नतीजा नहीं बदलता।",
       verdict: {
         below: "यह रकम {proc} के लिए हमारे सबसे कम बाज़ार अनुमान से भी कम है।",
         lowerHalf: "यह रकम {proc} के बाज़ार अनुमान के दायरे के निचले आधे हिस्से में है।",
@@ -1354,8 +1133,6 @@ export const translations = {
         above: "यह रकम {proc} के लिए हमारे सबसे ऊँचे बाज़ार अनुमान से भी ज़्यादा है।",
         unknown: "{proc} का बाज़ार अनुमान अभी हमारे पास नहीं है।",
       },
-      rangeHeading: "बैंगलोर बाज़ार सीमा",
-      rangeSource: "संपादकीय बाज़ार अनुमान, बिल की गई राशि नहीं। स्रोत:",
       hospitalsHeading: "जिन अस्पतालों की कीमतें हमारे पास हैं",
       hospitalsBelow: "{n} में से {below} अस्पतालों की आम कीमत इस रकम से कम है।",
       hospitalsNone: "इस इलाज की अस्पताल-वार कीमतें अभी नहीं हैं।",
@@ -1365,7 +1142,6 @@ export const translations = {
       cghsExplain:
         "CGHS वह राशि है जो सरकार सूचीबद्ध अस्पतालों को देती है, इसलिए निजी कोटेशन आमतौर पर ज़्यादा होते हैं। यह तुलना का निचला आधार है, उचित कीमत नहीं।",
       cghsNone: "इस इलाज का कोई पक्का CGHS मिलान नहीं है।",
-      askHeading: "हामी भरने से पहले अस्पताल से पूछें",
       askList: [
         "क्या यह पैकेज कीमत है? इसमें ठीक-ठीक क्या शामिल है: कमरा, सर्जन और एनेस्थेटिस्ट की फ़ीस, इम्प्लांट, दवाइयाँ, कंज़्यूमेबल, जाँचें?",
         "कोटेशन अस्पताल और ICU में कितने दिनों के हिसाब से है, और हर अतिरिक्त दिन का कितना खर्च है?",
@@ -1401,7 +1177,6 @@ export const translations = {
       highEnd: "सबसे ऊँचा अनुमान",
       whatToDo: "आप क्या कर सकते हैं",
       belowTip: "पूछें कि इस कीमत में क्या शामिल नहीं है, जैसे इम्प्लांट, दवाइयाँ या ज़्यादा दिन।",
-      askHeadingBill: "अस्पताल से साफ़ जानकारी माँगें",
       askListBill: [
         "मदवार अंतिम बिल माँगें, जिसमें कमरा, डॉक्टर की फ़ीस, इम्प्लांट, दवाइयाँ, सामान और जाँचें अलग-अलग लिखी हों।",
         "इसे भर्ती से पहले मिले अनुमान से लाइन-दर-लाइन मिलाएँ।",
@@ -1417,12 +1192,7 @@ export const translations = {
       sharePaid: "बिल चुका दिया? अपना बिल साझा करें",
     },
     bill: {
-      eyebrow: "बिल जाँच · दवाइयाँ",
       title: "दवा का बिल जाँचें",
-      subtitle:
-        "फ़ार्मेसी या अस्पताल के बिल की फ़ोटो लें, या लाइनें खुद लिखें। हर गोली या कैप्सूल जिसका हम मिलान कर पाते हैं, उसके लिए हम आपके प्रति यूनिट भुगतान की तुलना NPPA अधिकतम मूल्य और जन औषधि जेनेरिक से करते हैं।",
-      scanButton: "बिल की फ़ोटो लें",
-      or: "या",
       addLine: "एक लाइन जोड़ें",
       privacy: "फ़ोटो आपके डिवाइस पर ही पढ़ी जाती है और कभी अपलोड नहीं होती। आप जो लिखते हैं वह आपके ब्राउज़र से बाहर नहीं जाता।",
       scanFound: "हमने {n} लाइनें पढ़ीं। हर लाइन जाँचें: ज़रूरत हो तो मात्रा और राशि ठीक करें, फिर मिलती हुई दवा चुनें।",
@@ -1476,7 +1246,6 @@ export const translations = {
       brandCredit: "ब्रांड MRP: {name}, {date} ({license})।",
     },
     share: {
-      eyebrow: "अपना बिल साझा करें",
       title: "अस्पताल ने असल में कितना लिया?",
       subtitle:
         "हमें बताएँ कि अनुमान कितना था और आख़िर में कितना चुकाया। इसमें लगभग दो मिनट लगते हैं, और इससे अगला परिवार जानता है कि क्या उम्मीद करें।",
@@ -1484,15 +1253,7 @@ export const translations = {
       promiseNoName: "हम कभी आपका नाम या फ़ोन नहीं पूछते",
       promiseHospital: "आपका अस्पताल कभी सार्वजनिक नहीं दिखाया जाता",
       notOpen: "बिल साझा करना जल्द शुरू होगा। आप फ़ॉर्म देख सकते हैं, पर अभी जमा नहीं होगा।",
-      progressLabel: "फ़ॉर्म की प्रगति",
       stepOf: "चरण {n} / {total}",
-      steps: {
-        what: "क्या और कहाँ",
-        stay: "भर्ती",
-        money: "पैसा",
-        breakdown: "ब्योरा (वैकल्पिक)",
-        review: "जाँचें और भेजें",
-      },
       q: {
         category: "इलाज किस तरह का था?",
         procedure: "कौन-सा इलाज?",
@@ -1500,6 +1261,7 @@ export const translations = {
         procedurePlaceholder: "इलाज चुनें…",
         procedureOther: "सूची में नहीं — मैं लिखूँगा/लिखूँगी",
         procedureOtherPlaceholder: "जैसे पित्ताशय निकालना (लैप्रोस्कोपिक)",
+        procedureOtherLabel: "इलाज का नाम",
         city: "कौन-सा शहर?",
         cityOther: "दूसरा शहर",
         cityOtherPlaceholder: "शहर का नाम",
@@ -1507,7 +1269,7 @@ export const translations = {
         hospitalHint: "इससे हम जाँच पाते हैं कि रिपोर्ट असली है। यह साइट पर कभी नहीं दिखता।",
         hospitalSearch: "अस्पताल का नाम लिखना शुरू करें…",
         hospitalFreeText: "अस्पताल का नाम",
-        hospitalNotListed: "सूची में नहीं? जो लिखा है वही रहने दें।",
+        hospitalOther: "मेरा अस्पताल इस सूची में नहीं है",
         hospitalType: "अस्पताल किस प्रकार का है?",
         month: "इलाज कब हुआ?",
         monthPlaceholder: "महीना",
@@ -1532,6 +1294,7 @@ export const translations = {
         surprises: "जिन शुल्कों ने चौंकाया",
         surprisesHint: "कुछ भी जिसकी उम्मीद नहीं थी या जो बहुत महँगा लगा, जैसे ₹1,200 के दस्ताने।",
         surpriseItem: "किस चीज़ का शुल्क",
+        surpriseAmount: "रकम",
         addSurprise: "एक चार्ज जोड़ें",
       },
       category: {
@@ -1564,7 +1327,6 @@ export const translations = {
         employer: "नियोक्ता",
         other: "अन्य",
       },
-      optional: "वैकल्पिक",
       component: {
         room: "कमरे का शुल्क",
         icu: "ICU शुल्क",
@@ -1618,7 +1380,6 @@ export const translations = {
         generic: "बिल भेजने में कुछ गड़बड़ हुई। कनेक्शन जाँचें और फिर कोशिश करें।",
       },
       back: "वापस",
-      next: "आगे",
       skip: "यह चरण छोड़ें",
       submit: "मेरा बिल साझा करें",
       sending: "भेज रहे हैं…",
@@ -1634,8 +1395,6 @@ export const translations = {
         heading: "मरीज़ों ने क्या बताया",
         rule: "केवल उस शहर + इलाज के लिए दिखाया जाता है जिसके {b} अलग लोगों के कम से कम {n} जाँचे गए बिल हों। अस्पतालों के नाम कभी नहीं दिखते।",
         approved: "अब तक जाँचे गए बिल",
-        colProcedure: "इलाज · शहर",
-        colTypical: "सामान्य अंतिम बिल",
         bills: "{n} बिल",
         unverified: "मरीज़ों द्वारा बताया गया, स्वतंत्र रूप से सत्यापित नहीं। एक मार्गदर्शन, कोटेशन नहीं।",
         progress: "{proc}, {city}: {total} में से {n} बिल",
@@ -1672,7 +1431,7 @@ export const translations = {
         "हम केवल तभी CGHS मिलान दिखाते हैं जब हमें विश्वास हो कि यह वही प्रक्रिया है। एक सामान्य एकल शब्द (जैसे “एंजियोप्लास्टी”) जिसका मतलब कई चिकित्सकीय रूप से भिन्न CGHS लाइन आइटम (कोरोनरी, पेरिफेरल, या रीनल) हो सकता है, उसे अनुमान के बजाय “कोई मिलान नहीं” के रूप में दिखाया जाता है — हम कुछ न दिखाना पसंद करेंगे बजाय भ्रामक कुछ दिखाने के।",
       marketHeading: "बाज़ार कीमत के अनुमान",
       marketBody1:
-        "शहर-स्तरीय सीमाएं, और जहां उपलब्ध हों, अस्पताल-दर-अस्पताल विवरण HexaHealth के प्रकाशित लागत पृष्ठों से आते हैं। ये HexaHealth द्वारा संकलित संपादकीय बाजार अनुमान हैं, पुष्ट बिल की गई राशि नहीं — हर पृष्ठ मूल स्रोत से जुड़ा है।",
+        "शहर-स्तर की रेंज, और जहां उपलब्ध हों, अस्पताल-दर-अस्पताल विवरण HexaHealth के प्रकाशित लागत पृष्ठों से आते हैं। ये HexaHealth द्वारा संकलित संपादकीय बाजार अनुमान हैं, पुष्ट बिल की गई राशि नहीं — हर पृष्ठ मूल स्रोत से जुड़ा है।",
       marketBody2:
         "HexaHealth के अस्पताल नाम हमारी अपनी निर्देशिका में किसी विशेष प्रविष्टि से तभी जोड़े जाते हैं जब फ़ॉर्मेटिंग शोर (ब्रांडिंग, विराम चिह्न, शहर का नाम) हटाने के बाद मिलान बिल्कुल सटीक हो। अस्पताल श्रृंखलाओं की अक्सर एक ही शहर में कई शाखाएं होती हैं जिनकी कीमतें बहुत अलग होती हैं, इसलिए एक अस्पष्ट या आंशिक मिलान गलत शाखा को कीमत जोड़ने का जोखिम रखता है — हम इसे बिल्कुल न जोड़ने से भी बदतर मानते हैं, और इसके बजाय अस्पताल का नाम सादे पाठ के रूप में दिखाते हैं।",
       nextHeading: "आगे क्या",
@@ -1680,14 +1439,14 @@ export const translations = {
         "कर्नाटक की KPME रजिस्ट्री सांविधिक, प्रति-प्रतिष्ठान दर फाइलिंग प्रकाशित करती है — भारत में उपलब्ध वास्तविक अस्पताल-विशिष्ट मूल्य निर्धारण के सबसे करीब। हम यह आकलन कर रहे हैं कि क्या पर्याप्त अस्पतालों ने वास्तव में उपयोग करने योग्य दर कार्ड दाखिल किए हैं, इससे पहले कि इसे इस साइट में शामिल किया जाए।",
       medHeading: "दवाओं की कीमतें",
       medBody1:
-        "दवाओं को तभी एक समूह में रखा जाता है जब साल्ट, ताकत, रूप (गोली या कैप्सूल) और रिलीज़ का प्रकार सभी बिल्कुल समान हों। धीमी रिलीज़ वाली दवा सामान्य गोली के साथ नहीं रखी जाती, और जो ब्रांड अपनी संरचना का केवल हिस्सा बताता है उसे अनुमान लगाने के बजाय छोड़ दिया जाता है। साल्ट के रूप को मूल दवा तक घटाया जाता है (pantoprazole sodium → pantoprazole), सिवाय जहां साल्ट उत्पाद बदल देता है, जैसे metoprolol succinate बनाम tartrate।",
+        "दवाओं को तभी एक समूह में रखा जाता है जब साल्ट, ताकत, रूप (गोली या कैप्सूल) और रिलीज़ का प्रकार सभी बिल्कुल समान हों। धीमी रिलीज़ वाली दवा सामान्य गोली के साथ नहीं रखी जाती, और जो ब्रांड अपनी संरचना का केवल हिस्सा बताता है उसे अनुमान लगाने के बजाय छोड़ दिया जाता है। साल्ट के रूप को मूल दवा तक घटाया जाता है (pantoprazole sodium को pantoprazole ही माना जाता है), सिवाय जहां साल्ट उत्पाद बदल देता है, जैसे metoprolol succinate बनाम tartrate।",
       medBody2:
         "जन औषधि कीमतें PMBJP उत्पाद सूची से हैं। अधिकतम मूल्य NPPA की अधिसूचित सूची से हैं और GST को छोड़कर हैं। ब्रांड कीमतें A-Z Medicine Dataset of India (Kaggle, CC BY-SA 4.0) की सूचीबद्ध MRP हैं, जो नवंबर 2022 का स्नैपशॉट है। ये उसी तारीख के साथ दिखाई जाती हैं और दुकान की आज की कीमत नहीं हैं। इस साइट का दवा डेटा उसी CC BY-SA 4.0 लाइसेंस के तहत साझा है। साल्ट के नाम NRCeS Common Drug Codes for India (C-DAC, CC BY 4.0) से जांचे जाते हैं।",
       medBody3:
         "जन औषधि केंद्रों के पते PMBJP केंद्र सूची से हैं। हम संचालक का निजी नाम नहीं दिखाते। सूची में नक्शे के निर्देशांक नहीं हैं, इसलिए केंद्र दूरी से नहीं, पिन कोड से खोजे जाते हैं।",
       checkHeading: "कोटेशन और बिल जाँच",
       checkBody1:
-        "कोटेशन जाँच आपकी लिखी राशि को बैंगलोर में उस प्रक्रिया की HexaHealth बाज़ार सीमा और अस्पताल-वार कीमतों के सामने रखती है, और आपके चुने कमरे के प्रकार की CGHS दर से भाग देती है। यह बताती है कि कोटेशन कहाँ है। यह तय नहीं करती कि अस्पताल ने ज़्यादा वसूला: कीमत मरीज़ की हालत, सर्जन और इम्प्लांट के अनुसार उचित रूप से बदलती है।",
+        "कोटेशन जाँच आपकी लिखी राशि को बैंगलोर में उस प्रक्रिया की HexaHealth बाज़ार रेंज और अस्पताल-वार कीमतों के सामने रखती है, और आपके चुने कमरे के प्रकार की CGHS दर से भाग देती है। यह बताती है कि कोटेशन कहाँ है। यह तय नहीं करती कि अस्पताल ने ज़्यादा वसूला: कीमत मरीज़ की हालत, सर्जन और इम्प्लांट के अनुसार उचित रूप से बदलती है।",
       checkBody2:
         "बिल जाँच आपके डिवाइस पर फ़ोटो पढ़ती है, उसे लाइनों में बाँटती है, और हर लाइन का विवरण, मात्रा और राशि पहले से भर देती है ताकि आप सुधार सकें। मिलती हुई दवा आप चुनते हैं; हम आपकी ओर से कभी नहीं चुनते। प्रति यूनिट भुगतान = राशि ÷ गोलियों की संख्या। NPPA अधिकतम मूल्य में GST शामिल नहीं होता और दवाओं पर 5% या 12% GST लगता है, इसलिए लाइन को तभी फ़्लैग किया जाता है जब वह 12% जोड़ने के बाद भी अधिकतम मूल्य से ऊपर हो। अधिकतम मूल्य से बहुत ऊपर की लाइन का मतलब आमतौर पर मात्रा स्ट्रिप में लिखी होना है, इसलिए हम फ़्लैग करने के बजाय आपसे जाँचने को कहते हैं। केवल हमारे दवा डेटा की गोलियाँ और कैप्सूल जाँचे जा सकते हैं।",
       correctionsHeading: "सुधार",

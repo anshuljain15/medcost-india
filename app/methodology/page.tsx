@@ -1,40 +1,14 @@
-"use client";
+import type { Metadata } from "next";
+import MethodologyView from "@/components/MethodologyView";
 
-import { useTranslation } from "@/lib/i18n/LanguageProvider";
+export const metadata: Metadata = {
+  title: "How we get prices",
+  description:
+    "Where every price on MedCost India comes from: HexaHealth market estimates, the CGHS rate list, Jan Aushadhi and NPPA medicine prices, patient-shared bills, and how we match them.",
+};
 
+// Static copy only; the client view exists so the text can follow the
+// visitor's language (t()).
 export default function MethodologyPage() {
-  const { t } = useTranslation();
-
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-12 text-sm leading-7 text-ink-700">
-      <h1 className="text-2xl font-bold text-ink-900">{t("methodology.title")}</h1>
-      <p className="mt-4">{t("methodology.intro")}</p>
-
-      <h2 className="mt-8 text-lg font-semibold text-ink-900">{t("methodology.dirHeading")}</h2>
-      <p className="mt-2">{t("methodology.dirBody")}</p>
-
-      <h2 className="mt-8 text-lg font-semibold text-ink-900">{t("methodology.govHeading")}</h2>
-      <p className="mt-2">{t("methodology.govBody1")}</p>
-      <p className="mt-2">{t("methodology.govBody2")}</p>
-
-      <h2 className="mt-8 text-lg font-semibold text-ink-900">{t("methodology.marketHeading")}</h2>
-      <p className="mt-2">{t("methodology.marketBody1")}</p>
-      <p className="mt-2">{t("methodology.marketBody2")}</p>
-
-      <h2 className="mt-8 text-lg font-semibold text-ink-900">{t("methodology.medHeading")}</h2>
-      <p className="mt-2">{t("methodology.medBody1")}</p>
-      <p className="mt-2">{t("methodology.medBody2")}</p>
-      <p className="mt-2">{t("methodology.medBody3")}</p>
-
-      <h2 className="mt-8 text-lg font-semibold text-ink-900">{t("methodology.checkHeading")}</h2>
-      <p className="mt-2">{t("methodology.checkBody1")}</p>
-      <p className="mt-2">{t("methodology.checkBody2")}</p>
-
-      <h2 className="mt-8 text-lg font-semibold text-ink-900">{t("methodology.nextHeading")}</h2>
-      <p className="mt-2">{t("methodology.nextBody")}</p>
-
-      <h2 className="mt-8 text-lg font-semibold text-ink-900">{t("methodology.correctionsHeading")}</h2>
-      <p className="mt-2">{t("methodology.correctionsBody")}</p>
-    </div>
-  );
+  return <MethodologyView />;
 }

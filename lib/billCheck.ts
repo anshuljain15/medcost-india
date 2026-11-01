@@ -1,3 +1,4 @@
+import { parseCghsAmount } from "./format";
 import type { MedicineRef, Procedure } from "./types";
 
 // Pure logic behind /check-quote and /check-bill. Nothing here decides that a
@@ -27,8 +28,9 @@ function cghsWardRate(p: Procedure, ward: Ward): number | null {
   const ref = p.cghsReference;
   if (!ref) return null;
   const raw = ward === "general" ? ref.generalWard : ward === "semiPrivate" ? ref.semiPrivateWard : ref.privateWard;
-  const n = raw === null ? NaN : Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  // Scraped strings such as "38740+GST" or "1,95,000+GST": never Number() them.
+  const n = parseCghsAmount(raw);
+  return n !== null && n > 0 ? n : null;
 }
 
 export function assessQuote(p: Procedure, quote: number, ward: Ward): QuoteAssessment {

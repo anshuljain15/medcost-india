@@ -1,19 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import type { MedicinesMeta } from "@/lib/types";
 import { MIN_QUERY_LENGTH, normalize, searchMedicines, type MedicineHit } from "@/lib/medicineShards";
-import { formatINRUnit } from "@/lib/format";
+import { formatINRUnit, formatISODate } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
+import {
+  Badge,
+  Callout,
+  ChipRow,
+  ChoiceChip,
+  DataText,
+  ExtLink,
+  InsetGroup,
+  ListRow,
+  PageHeader,
+  PageNotes,
+  PageShell,
+  PrivacyNote,
+  SectionHeader,
+  Skeleton,
+  TaskTile,
+  TextField,
+  useAnnounce,
+} from "@/components/ui";
 import PrescriptionScan from "@/components/PrescriptionScan";
 
-export default function MedicineSearchView({ groupCount }: { groupCount: number }) {
+// Medicine search reads the sharded index under public/data/medicines/search
+// (lib/medicineShards.ts), never medicines.json. Only the group count and the
+// source dates cross from the server.
+
+/** Example queries, each verified to hit the shards (q-pan.json, q-dol.json). Data text, not translated. */
+const TRY_CHIPS = ["Pan 40", "Dolo 650", "pantoprazole"];
+
+export default function MedicineSearchView({
+  groupCount,
+  jaDate,
+  brands,
+}: {
+  groupCount: number;
+  jaDate: string | null;
+  brands: MedicinesMeta["brands"];
+}) {
   const { t } = useTranslation();
+  const announce = useAnnounce();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ for: string; hits: MedicineHit[] }>({ for: "", hits: [] });
 
   const q = normalize(query);
   const active = q.replace(/ /g, "").length >= MIN_QUERY_LENGTH;
+  const hasQuery = query.trim() !== "";
 
   useEffect(() => {
     if (!active) return;
@@ -30,72 +67,134 @@ export default function MedicineSearchView({ groupCount }: { groupCount: number 
   }, [q, active]);
 
   const loading = active && results.for !== q;
+  const ready = active && !loading;
+  const count = ready ? results.hits.length : null;
+
+  // Announce the result count once typing pauses (polite live region).
+  useEffect(() => {
+    if (count === null) return;
+    const message = count > 0 ? t("search.count", { n: count }) : t("medicines.noResults", { q: query.trim() });
+    const timer = setTimeout(() => announce(message), 600);
+    return () => clearTimeout(timer);
+  }, [count, query, announce, t]);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12">
-      <div className="text-xs font-semibold uppercase tracking-wide text-brand-700">{t("medicines.eyebrow")}</div>
-      <h1 className="mt-2 text-3xl font-bold text-ink-900">{t("medicines.title")}</h1>
-      <p className="mt-3 text-ink-700">{t("medicines.subtitle")}</p>
+    <PageShell>
+      <PageHeader title={t("medicines.title")} lead={t("medicines.lead")} />
+      <Suspense fallback={null}>
+        <QueryFromUrl onQuery={setQuery} />
+      </Suspense>
 
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={t("medicines.searchPlaceholder")}
-        aria-label={t("medicines.searchPlaceholder")}
-        className="mt-8 w-full rounded-full border border-ink-300 bg-surface px-6 py-4 text-base text-ink-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-      />
-      <div className="mt-2 px-2 text-xs text-ink-500">
-        {!active ? t("medicines.searchHint") : loading ? t("medicines.searching") : null}
+      <div className="space-y-4">
+        <TextField
+          id="medicine-search"
+          type="search"
+          label={t("medicines.searchLabel")}
+          hint={t("medicines.searchHint")}
+          placeholder={t("medicines.searchPlaceholder")}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            // Close the phone keyboard so the results below are visible.
+            if (e.key === "Enter") e.currentTarget.blur();
+          }}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          enterKeyHint="search"
+        />
+        <PrescriptionScan onPick={setQuery} selected={query} />
+        {!hasQuery && (
+          <ChipRow wrap label={t("search.try")}>
+            <span aria-hidden="true" className="inline-flex min-h-11 items-center text-callout text-label-2">
+              {t("search.try")}
+            </span>
+            {TRY_CHIPS.map((chip) => (
+              <ChoiceChip key={chip} type="toggle" checked={false} onChange={() => setQuery(chip)}>
+                <DataText>{chip}</DataText>
+              </ChoiceChip>
+            ))}
+          </ChipRow>
+        )}
       </div>
 
-      {active && !loading && (
-        <div className="mt-4 overflow-hidden rounded-2xl border border-ink-100 bg-surface">
-          {results.hits.length === 0 ? (
-            <div className="px-5 py-4 text-sm text-ink-500">{t("medicines.noResults", { q: query.trim() })}</div>
+      {active && (
+        <div className="mt-6" aria-busy={loading}>
+          {loading ? (
+            <div aria-hidden="true" className="space-y-2">
+              <Skeleton />
+              <Skeleton />
+              <Skeleton />
+            </div>
+          ) : results.hits.length === 0 ? (
+            <Callout icon="search">{t("medicines.noResults", { q: query.trim() })}</Callout>
           ) : (
-            <ul className="divide-y divide-ink-100">
+            <InsetGroup
+              footer={
+                <div className="space-y-1">
+                  <p>{t("search.medicinesSource", { date: jaDate ? formatISODate(jaDate) : t("source.noDate") })}</p>
+                  <p>
+                    {t("medicines.brandsCredit", {
+                      name: brands.name,
+                      date: formatISODate(brands.snapshotDate),
+                      license: brands.license,
+                    })}{" "}
+                    <ExtLink href={brands.url}>Kaggle</ExtLink>
+                  </p>
+                </div>
+              }
+            >
               {results.hits.map((h, i) => (
-                <li key={`${h.kind}-${h.slug}-${h.name}-${i}`}>
-                  <Link
-                    href={`/medicines/${h.slug}`}
-                    className="flex items-center justify-between gap-4 px-5 py-3 hover:bg-brand-50"
-                  >
-                    <span>
-                      <span className="mr-2 rounded bg-ink-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-500">
-                        {h.kind === "g" ? t("medicines.kindGroup") : t("medicines.kindBrand")}
-                      </span>
-                      <span className="font-medium text-ink-900">{h.name}</span>
-                    </span>
-                    <span className="shrink-0 text-right text-sm text-ink-500">
-                      {h.kind === "b"
-                        ? t("medicines.perUnitBrand", { price: formatINRUnit(h.perUnit) })
-                        : h.perUnit !== null
-                          ? t("medicines.perUnitJa", { price: formatINRUnit(h.perUnit) })
-                          : t("medicines.noJaPrice")}
-                    </span>
-                  </Link>
-                </li>
+                <ListRow
+                  key={`${h.kind}-${h.slug}-${h.name}-${i}`}
+                  href={`/medicines/${h.slug}`}
+                  title={<DataText>{h.name}</DataText>}
+                  badges={<Badge>{h.kind === "g" ? t("medicines.kindGroup") : t("medicines.kindBrand")}</Badge>}
+                  meta={
+                    h.kind === "b"
+                      ? t("medicines.perUnitBrand", { price: formatINRUnit(h.perUnit) })
+                      : h.perUnit !== null
+                        ? t("medicines.perUnitJa", { price: formatINRUnit(h.perUnit) })
+                        : t("medicines.noJaPrice")
+                  }
+                />
               ))}
-            </ul>
+            </InsetGroup>
           )}
         </div>
       )}
 
-      <PrescriptionScan onPick={setQuery} />
+      {!hasQuery && (
+        <section aria-labelledby="medicine-tools" className="mt-10 md:mt-16">
+          <SectionHeader id="medicine-tools" title={t("medicines.toolsHeading")} />
+          <div className="space-y-3">
+            <TaskTile
+              level={3}
+              href="/check-bill"
+              icon="receipt"
+              title={t("nav.checkBill")}
+              body={t("home.tileBillBody")}
+              note={<PrivacyNote>{t("home.actionPrivate")}</PrivacyNote>}
+            />
+            <TaskTile level={3} href="/kendras" icon="store" title={t("nav.kendras")} body={t("home.moreKendrasSub")} />
+          </div>
+        </section>
+      )}
 
-      <p className="mt-8 text-sm text-ink-500">{t("medicines.coverage", { n: groupCount.toLocaleString("en-IN") })}</p>
-      <Link href="/kendras" className="mt-2 inline-block text-sm font-medium text-brand-700 hover:underline">
-        {t("medicines.findKendra")}
-      </Link>
-
-      <p className="mt-8 rounded-xl border border-dashed border-ink-300 p-4 text-sm text-ink-700">
-        {t("medicines.disclaimer")}{" "}
-        <Link href="/methodology" className="underline">
-          {t("medicines.methodologyLink")}
-        </Link>
-        .
-      </p>
-    </div>
+      <PageNotes anchor="medicines" linkKey="medicines.methodologyLink">
+        <p>{t("medicines.coverage", { n: groupCount.toLocaleString("en-IN") })}</p>
+        <p>{t("medicines.disclaimer")}</p>
+      </PageNotes>
+    </PageShell>
   );
+}
+
+/** /medicines?q=… (e.g. "See all medicines matching" in the site search). useSearchParams needs a Suspense boundary under static export. */
+function QueryFromUrl({ onQuery }: { onQuery: (q: string) => void }) {
+  const q = useSearchParams().get("q");
+  useEffect(() => {
+    if (q) onQuery(q);
+  }, [q, onQuery]);
+  return null;
 }

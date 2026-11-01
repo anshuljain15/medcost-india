@@ -120,6 +120,7 @@
 
 /* =================== Tailwind colour + shadow mapping =================== */
 @theme inline {
+  --color-*: initial; /* Phase 5: drops Tailwind's stock palette; only role colours below compile */
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -144,19 +145,9 @@
   --color-warn-bg: var(--warn-bg); --color-warn-fg: var(--warn-fg); --color-warn-icon: var(--warn-icon); --color-warn-line: var(--warn-line);
   --color-danger-bg: var(--danger-bg); --color-danger-fg: var(--danger-fg);
   --color-success-bg: var(--success-bg); --color-success-fg: var(--success-fg); --color-success-icon: var(--success-icon);
-
-  /* existing names */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-contrast: var(--contrast-bg);
-  --color-contrast-fg: var(--contrast-fg);
-  --color-brand-50: var(--brand-50);   --color-brand-100: var(--brand-100); --color-brand-200: var(--brand-200);
-  --color-brand-300: var(--brand-300); --color-brand-400: var(--brand-400); --color-brand-500: var(--brand-500);
-  --color-brand-600: var(--brand-600); --color-brand-700: var(--brand-700); --color-brand-800: var(--brand-800);
-  --color-brand-900: var(--brand-900);
-  --color-ink-900: var(--ink-900); --color-ink-700: var(--ink-700); --color-ink-500: var(--ink-500);
-  --color-ink-300: var(--ink-300); --color-ink-100: var(--ink-100); --color-ink-50: var(--ink-50);
-  --color-warn-50: var(--warn-50); --color-warn-200: var(--warn-200); --color-warn-700: var(--warn-700); --color-warn-900: var(--warn-900);
+  /* The legacy brand-*, ink-*, warn-50..900, background/foreground and contrast
+     utilities are retired (Phase 5): every usage moved to the role tokens above.
+     Their :root variables are still defined, so nothing reading var(--brand-*) breaks. */
 
   --shadow-card: var(--elev-card);
   --shadow-card-hover: var(--elev-card-hover);
