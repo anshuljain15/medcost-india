@@ -19,12 +19,30 @@ export const SECTIONS: {
   { key: "hospitals", href: "/hospitals", navKey: "nav.hospitals", tabKey: "tab.hospitals", icon: "hospital", match: ["/hospitals"] },
 ];
 
-/** Focus mode: no section nav, search or tab bar; the header shows the service name and a Close (X). */
-export const FOCUS_ROUTES: Record<string, { serviceKey: string; closeHref: string; closeLabelKey: string }> = {
-  "/check-quote": { serviceKey: "nav.checkQuoteShort", closeHref: "/procedures", closeLabelKey: "nav.treatment" },
-  "/check-bill":  { serviceKey: "nav.checkBill",       closeHref: "/medicines",  closeLabelKey: "nav.medicines" },
-  "/share-bill":  { serviceKey: "nav.shareBill",       closeHref: "/",           closeLabelKey: "nav.home" },
+/**
+ * Focus mode: no section nav, search or tab bar; the header shows the service
+ * name and a Close (X). Below 768px the header has about 130px for the name
+ * (after the logo mark, language pill and Close), so it shows `phoneKey`, a
+ * two-word name; the full `serviceKey` shows from 768px. The H1 under the
+ * header always carries the full name.
+ */
+export const FOCUS_ROUTES: Record<string, { serviceKey: string; phoneKey: string; closeHref: string; closeLabelKey: string }> = {
+  "/check-quote": { serviceKey: "nav.checkQuoteShort", phoneKey: "nav.phoneCheckQuote", closeHref: "/procedures", closeLabelKey: "nav.treatment" },
+  "/check-bill":  { serviceKey: "nav.checkBill",       phoneKey: "nav.phoneCheckBill",  closeHref: "/medicines",  closeLabelKey: "nav.medicines" },
+  "/share-bill":  { serviceKey: "nav.shareBill",       phoneKey: "nav.phoneShareBill",  closeHref: "/",           closeLabelKey: "nav.home" },
 };
+
+/**
+ * Routes whose page opens with its own search field (the home hero, and the
+ * hospital search on /hospitals). The header leaves its search out there, so
+ * a screen never shows two search fields with different scopes.
+ */
+export const HERO_SEARCH_ROUTES = ["/", "/hospitals"];
+
+/** True when the page at `pathname` has its own hero search. */
+export function hasHeroSearch(pathname: string): boolean {
+  return HERO_SEARCH_ROUTES.includes(stripTrailingSlash(pathname));
+}
 
 /** "/procedures/" -> "/procedures"; "/" stays "/". */
 function stripTrailingSlash(path: string): string {
@@ -51,3 +69,14 @@ export function ariaCurrent(pathname: string, href: string, match: string[]): "p
     ? "true"
     : undefined;
 }
+
+/**
+ * Where people report a wrong price or detail, e.g.
+ * "https://github.com/anshuljain15/medcost-india/issues". null until the owner
+ * confirms the repo is public with Issues enabled (design spec §6
+ * /methodology, "Corrections link"). While it is null, the footer's "Report a
+ * wrong price" row (nav.reportMistake) and the methodology.correctionsLink
+ * under #corrections are not shown: a link that leads only to a promise of a
+ * channel is worse than no link. Set it, and both appear.
+ */
+export const CORRECTIONS_URL: string | null = null;

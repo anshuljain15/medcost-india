@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 };
 
 // Server page: the client list gets one slim row per procedure, never the
-// hospital-wise prices or the CGHS rows behind them.
+// hospital-wise prices or the CGHS rows behind them. The hospital count is of
+// the rows the procedure page shows (lib/data.ts drops inconsistent ones).
 export default function ProceduresPage() {
   const rows: ProcedureListRow[] = getAllProcedures().map((p) => [
     p.slug,

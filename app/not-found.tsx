@@ -1,6 +1,5 @@
 "use client";
 
-import UniversalSearch from "@/components/search/UniversalSearch";
 import { ButtonLink } from "@/components/ui/Button";
 import { InsetGroup } from "@/components/ui/InsetGroup";
 import { ListRow } from "@/components/ui/ListRow";
@@ -11,6 +10,10 @@ import { SECTIONS } from "@/lib/nav";
 
 // 404 (§6). Client so it can use t(); the root layout renders the normal
 // chrome around it, and the static export still emits 404.html.
+//
+// No search field of its own: the header search is on this page (a 404 path
+// is never "/" or "/hospitals"), and a second, page-level one would only
+// repeat it, without the server-read medicine source dates the header's has.
 export default function NotFound() {
   const { t } = useTranslation();
   return (
@@ -22,9 +25,6 @@ export default function NotFound() {
           <ListRow key={section.key} href={section.href} leading={section.icon} title={t(section.navKey)} />
         ))}
       </InsetGroup>
-      <div className="mt-10">
-        <UniversalSearch variant="hero" />
-      </div>
       <div className="mt-8">
         <ButtonLink variant="plain" href="/">
           {t("notFound.home")}

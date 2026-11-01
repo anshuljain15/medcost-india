@@ -1,4 +1,5 @@
 import { BackLink } from "./BackLink";
+import type { PrefetchMode } from "./IntentLink";
 
 /** BackLink, H1, lead, meta and an optional slot (badges, actions). */
 export function PageHeader({
@@ -9,7 +10,7 @@ export function PageHeader({
   children,
   display,
 }: {
-  back?: { href: string; label: string };
+  back?: { href: string; label: string; prefetch?: PrefetchMode };
   title: React.ReactNode;
   lead?: React.ReactNode;
   meta?: React.ReactNode;
@@ -18,7 +19,7 @@ export function PageHeader({
 }) {
   return (
     <div className="mb-8 md:mb-10">
-      {back && <BackLink href={back.href} label={back.label} />}
+      {back && <BackLink href={back.href} label={back.label} prefetch={back.prefetch} />}
       <h1 className={display ? "text-display text-label text-balance" : "text-title1 text-label text-balance"}>
         {title}
       </h1>

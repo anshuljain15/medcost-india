@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Button,
   Callout,
@@ -22,7 +22,7 @@ import {
   TextField,
   useAnnounce,
 } from "@/components/ui";
-import { parseCghsAmount } from "@/lib/format";
+import { cghsGst, parseCghsAmount } from "@/lib/format";
 import { loadCghsIndex, type CghsIndex, type CghsIndexRow } from "@/lib/staticData";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 
@@ -39,6 +39,38 @@ const WARD_COLUMNS: [labelKey: string, col: 4 | 5 | 6][] = [
 
 const fmtCount = (n: number) => n.toLocaleString("en-IN");
 
+// The table replaces the phone list from 768px. Only one of them is rendered,
+// so each keystroke formats one set of rows, not two.
+const WIDE_QUERY = "(min-width: 48rem)";
+function subscribeWide(onChange: () => void) {
+  const mq = window.matchMedia(WIDE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+const wideNow = () => window.matchMedia(WIDE_QUERY).matches;
+const wideOnServer = () => false;
+
+/**
+ * One CGHS ward amount, with its GST note when the list gives one.
+ * parseCghsAmount reads "38740+GST" and "Rs 23,625(Inclusive of GST)" as bare
+ * numbers; cghsGst says which it was, so a "+GST" rate never passes for the
+ * full amount and never looks the same as a GST-inclusive one.
+ */
+function WardAmount({ raw }: { raw: string | null }) {
+  const { t } = useTranslation();
+  const gst = cghsGst(raw);
+  return (
+    <>
+      <Money value={parseCghsAmount(raw)} />
+      {gst && (
+        <span className="block text-footnote text-label-2">
+          {t(gst === "plus" ? "common.plusGst" : "common.inclGst")}
+        </span>
+      )}
+    </>
+  );
+}
+
 /** Phone layout: name, code, then the three ward amounts in a row. */
 function RateRow({ row }: { row: CghsIndexRow }) {
   const { t } = useTranslation();
@@ -53,7 +85,7 @@ function RateRow({ row }: { row: CghsIndexRow }) {
               <div key={key}>
                 <dt className="text-footnote text-label-2">{t(key)}</dt>
                 <dd className="text-headline tabular-nums text-label">
-                  <Money value={parseCghsAmount(row[col])} />
+                  <WardAmount raw={row[col]} />
                 </dd>
               </div>
             ))}
@@ -92,6 +124,8 @@ export default function RateExplorer({
   const [index, setIndex] = useState<CghsIndex | null>(null);
   const [failed, setFailed] = useState(false);
   const loading = useRef(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const isWide = useSyncExternalStore(subscribeWide, wideNow, wideOnServer);
 
   /** Fetch the index on first use (event handlers only). A failed fetch is retried on the next focus. */
   function ensureIndex() {
@@ -105,32 +139,41 @@ export default function RateExplorer({
     });
   }
 
-  const trimmed = query.trim();
+  // Typing stays responsive while the filter over ~2,600 rows catches up.
+  const deferredQuery = useDeferredValue(query);
+  const trimmed = deferredQuery.trim();
   const active = trimmed !== "" || specialty !== "";
+
+  // "code name", lower-cased once per index rather than once per keystroke.
+  const hays = useMemo(
+    () => (index ? index.r.map((r) => `${r[0]} ${r[1]}`.toLowerCase().normalize("NFC")) : []),
+    [index]
+  );
 
   const filtered = useMemo(() => {
     if (!index || !active) return [];
     const tokens = trimmed.toLowerCase().normalize("NFC").split(/\s+/).filter(Boolean);
     const nabh = type === "nabh" ? 1 : 0;
     const specialtyIndex = specialty ? index.s.indexOf(specialty) : -1;
-    return index.r.filter((r) => {
+    return index.r.filter((r, i) => {
       if (r[3] !== nabh) return false;
       if (specialty && r[2] !== specialtyIndex) return false;
-      if (tokens.length === 0) return true;
-      const hay = `${r[0]} ${r[1]}`.toLowerCase().normalize("NFC");
-      return tokens.every((tok) => hay.includes(tok));
+      return tokens.every((tok) => hays[i].includes(tok));
     });
-  }, [index, active, trimmed, specialty, type]);
+  }, [index, hays, active, trimmed, specialty, type]);
 
   const shown = filtered.slice(0, visible);
   const ready = index !== null && active;
+  const matchingText = t(filtered.length === 1 ? "rates.matchingRowsOne" : "rates.matchingRows", {
+    n: fmtCount(filtered.length),
+  });
 
   // Announce the number of matching rows once typing or picking pauses.
   useEffect(() => {
     if (!ready) return;
-    const timer = window.setTimeout(() => announce(t("rates.matchingRows", { n: fmtCount(filtered.length) })), 600);
+    const timer = window.setTimeout(() => announce(matchingText), 600);
     return () => window.clearTimeout(timer);
-  }, [ready, filtered.length, announce, t]);
+  }, [ready, matchingText, announce]);
 
   let results: React.ReactNode;
   if (!active) {
@@ -152,46 +195,49 @@ export default function RateExplorer({
   } else {
     results = (
       <>
-        <p className="text-footnote text-label-2">{t("rates.matchingRows", { n: fmtCount(filtered.length) })}</p>
+        <p className="text-footnote text-label-2">{matchingText}</p>
         {filtered.length > 0 && (
           <>
-            <div className="mt-3 max-w-read md:hidden">
-              <InsetGroup>
-                {shown.map((r, i) => (
-                  <RateRow key={`${r[0]}-${r[3]}-${i}`} row={r} />
-                ))}
-              </InsetGroup>
-            </div>
-            <div className="mt-3 hidden rounded-card bg-surface p-2 md:block">
-              <Table
-                caption={t("rates.title")}
-                columns={[
-                  { key: "code", label: t("rates.colCode") },
-                  { key: "name", label: t("rates.colProcedure") },
-                  { key: "general", label: t("rates.colGeneral"), numeric: true },
-                  { key: "semi", label: t("rates.colSemiPrivate"), numeric: true },
-                  { key: "private", label: t("rates.colPrivate"), numeric: true },
-                ]}
-              >
-                {shown.map((r, i) => (
-                  <tr key={`${r[0]}-${r[3]}-${i}`}>
-                    <TableCell>
-                      <span className="whitespace-nowrap tabular-nums">
-                        <DataText>{r[0]}</DataText>
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <DataText>{r[1]}</DataText>
-                    </TableCell>
-                    {WARD_COLUMNS.map(([key, col]) => (
-                      <TableCell key={key} numeric>
-                        <Money value={parseCghsAmount(r[col])} />
+            {isWide ? (
+              <div className="mt-3 rounded-card bg-surface p-2">
+                <Table
+                  caption={t("rates.title")}
+                  columns={[
+                    { key: "code", label: t("rates.colCode") },
+                    { key: "name", label: t("rates.colProcedure") },
+                    { key: "general", label: t("rates.colGeneral"), numeric: true },
+                    { key: "semi", label: t("rates.colSemiPrivate"), numeric: true },
+                    { key: "private", label: t("rates.colPrivate"), numeric: true },
+                  ]}
+                >
+                  {shown.map((r, i) => (
+                    <tr key={`${r[0]}-${r[3]}-${i}`}>
+                      <TableCell>
+                        <span className="whitespace-nowrap tabular-nums">
+                          <DataText>{r[0]}</DataText>
+                        </span>
                       </TableCell>
-                    ))}
-                  </tr>
-                ))}
-              </Table>
-            </div>
+                      <TableCell>
+                        <DataText>{r[1]}</DataText>
+                      </TableCell>
+                      {WARD_COLUMNS.map(([key, col]) => (
+                        <TableCell key={key} numeric>
+                          <WardAmount raw={r[col]} />
+                        </TableCell>
+                      ))}
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+            ) : (
+              <div className="mt-3 max-w-read">
+                <InsetGroup>
+                  {shown.map((r, i) => (
+                    <RateRow key={`${r[0]}-${r[3]}-${i}`} row={r} />
+                  ))}
+                </InsetGroup>
+              </div>
+            )}
             {visible < filtered.length && (
               <div className="mt-6">
                 <Button variant="tonal" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
@@ -214,9 +260,12 @@ export default function RateExplorer({
           lead={t("rates.lead")}
         />
 
-        <Disclosure variant="inline" summary={t("rates.about")}>
-          <p>{t("rates.subtitle", { n: fmtCount(lineItems), m: specialties.length })}</p>
-        </Disclosure>
+        {/* -mx-4 lines the summary text up with the H1 (the summary has px-4). */}
+        <div className="-mx-4">
+          <Disclosure variant="inline" summary={t("rates.about")}>
+            <p>{t("rates.subtitle", { n: fmtCount(lineItems), m: specialties.length })}</p>
+          </Disclosure>
+        </div>
 
         <div className="mt-6 space-y-6">
           <TextField
@@ -230,7 +279,14 @@ export default function RateExplorer({
             spellCheck={false}
             enterKeyHint="search"
             value={query}
+            // Below 768px the field moves under the header on focus, and the
+            // keyboard's Search key closes the keyboard (TextField does both);
+            // here Search also brings the results, below the filters, into view.
+            phoneSearch
             onFocus={ensureIndex}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !isWide) resultsRef.current?.scrollIntoView({ block: "start" });
+            }}
             onChange={(e) => {
               ensureIndex();
               setQuery(e.target.value);
@@ -270,14 +326,18 @@ export default function RateExplorer({
           />
         </div>
 
-        <div className="mt-4">
+        <div className="-mx-4 mt-4">
           <Disclosure variant="inline" summary={t("rates.whatNabh")}>
             <p>{t("rates.whatNabhBody")}</p>
           </Disclosure>
         </div>
       </div>
 
-      <div className="mt-10" aria-busy={active && !index && !failed ? true : undefined}>
+      <div
+        ref={resultsRef}
+        className="mt-6 md:mt-10"
+        aria-busy={active && !index && !failed ? true : undefined}
+      >
         {results}
       </div>
 

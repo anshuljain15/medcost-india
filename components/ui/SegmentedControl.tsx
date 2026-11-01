@@ -1,7 +1,11 @@
+import { Icon } from "./Icon";
+
 /**
  * A radio group drawn as a segmented track. Native radios give arrow-key
- * movement and form semantics for free; the selected look comes only from
- * :checked plus tokens, and the segment shows the focus ring of its radio.
+ * movement and form semantics for free; the segment shows the focus ring of
+ * its radio. The selected segment is never shown by colour alone: it gets a
+ * check icon, semibold text and a 3:1 edge (ring-control) on its thumb, since
+ * thumb against track is only 1.2:1 (light) / 2.1:1 (dark).
  */
 export function SegmentedControl<T extends string>({
   name,
@@ -34,9 +38,10 @@ export function SegmentedControl<T extends string>({
             />
             <span
               lang={o.lang}
-              className="flex min-h-11 cursor-pointer items-center justify-center rounded-thumb px-3 text-center text-callout font-medium text-label transition-[background-color,box-shadow] duration-150 ease-fade peer-checked:bg-thumb peer-checked:font-semibold peer-checked:shadow-thumb peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus"
+              className="flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-thumb px-3 text-center text-callout font-medium text-label transition-[background-color,box-shadow] duration-150 ease-fade peer-checked:bg-thumb peer-checked:font-semibold peer-checked:shadow-thumb peer-checked:ring-1 peer-checked:ring-control peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus"
             >
-              {o.label}
+              {value === o.value && <Icon name="check" className="size-4 shrink-0" />}
+              <span>{o.label}</span>
             </span>
           </label>
         ))}

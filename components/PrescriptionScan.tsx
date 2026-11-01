@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { searchMedicines } from "@/lib/medicineShards";
 import { readImageText } from "@/lib/ocr";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
@@ -19,6 +19,8 @@ type State =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "reading"; pct: number }
+  /** OCR is done; the readable words are being looked up in the index. */
+  | { kind: "matching" }
   | { kind: "done"; words: string[] }
   | { kind: "failed" };
 
@@ -40,21 +42,49 @@ function candidates(text: string): string[] {
  * `capture`, so Android offers Camera or Gallery), the privacy line right
  * beside it, OCR progress, then the readable words as toggle chips.
  * `selected` is the current query, so the chip it came from shows as pressed.
+ *
+ * `collapsed` (the person has typed a query) hides the block while no scan is
+ * in progress or on screen, so the results start right under the field. The
+ * component stays mounted either way: picking a word chip sets the query, and
+ * unmounting then would throw away the chips and any OCR still running.
  */
-export default function PrescriptionScan({ onPick, selected }: { onPick: (q: string) => void; selected?: string }) {
+export default function PrescriptionScan({
+  onPick,
+  selected,
+  collapsed = false,
+}: {
+  onPick: (q: string) => void;
+  selected?: string;
+  collapsed?: boolean;
+}) {
   const { t } = useTranslation();
   const announce = useAnnounce();
   const [state, setState] = useState<State>({ kind: "idle" });
+  const busy = state.kind === "loading" || state.kind === "reading" || state.kind === "matching";
+
+  // The photo control is disabled while busy, and a disabled control drops
+  // keyboard focus to <body>. When the scan ends, put focus back on it so the
+  // person continues from the photo control (retry) or tabs on to the chips.
+  const photoTrigger = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (busy) return;
+    const el = photoTrigger.current;
+    photoTrigger.current = null;
+    if (el?.isConnected && (document.activeElement === null || document.activeElement === document.body)) el.focus();
+  }, [busy]);
 
   async function handleFile(file: File) {
+    const active = document.activeElement;
+    photoTrigger.current = active instanceof HTMLElement && active !== document.body ? active : null;
     setState({ kind: "loading" });
     try {
       const text = await readImageText(file, (pct) => setState({ kind: "reading", pct }));
-      const words: string[] = [];
-      for (const c of candidates(text)) {
-        const hits = await searchMedicines(c, 1);
-        if (hits.length > 0) words.push(c);
-      }
+      setState({ kind: "matching" });
+      // All lookups at once: words that share a 3-letter shard share one fetch
+      // (fetchStaticJson caches the promise), and the chips keep reading order.
+      const list = candidates(text);
+      const hits = await Promise.all(list.map((c) => searchMedicines(c, 1)));
+      const words = list.filter((_, i) => hits[i].length > 0);
       setState({ kind: "done", words });
       announce(words.length > 0 ? t("medicines.scan.found") : t("medicines.scan.nothing"));
     } catch {
@@ -63,8 +93,9 @@ export default function PrescriptionScan({ onPick, selected }: { onPick: (q: str
     }
   }
 
-  const busy = state.kind === "loading" || state.kind === "reading";
-  const pct = state.kind === "reading" ? state.pct : 0;
+  if (collapsed && state.kind === "idle") return null;
+
+  const pct = state.kind === "reading" ? state.pct : state.kind === "matching" ? 100 : 0;
 
   return (
     <div className="space-y-2">
@@ -75,12 +106,21 @@ export default function PrescriptionScan({ onPick, selected }: { onPick: (q: str
       {busy && (
         <ProgressBar
           value={pct}
-          label={t("medicines.scan.button")}
-          // Whole tens, so a screen reader hears a few updates rather than every percent.
-          liveText={
+          label={t("medicines.scan.readingLabel")}
+          text={
             state.kind === "loading"
               ? t("medicines.scan.loading")
-              : t("medicines.scan.reading", { pct: Math.floor(pct / 10) * 10 })
+              : state.kind === "matching"
+                ? t("medicines.searching")
+                : t("medicines.scan.reading", { pct: Math.floor(pct / 10) * 10 })
+          }
+          // Announced once per stage; the percentage is shown, not read out.
+          stage={
+            state.kind === "loading"
+              ? t("medicines.scan.loading")
+              : state.kind === "matching"
+                ? t("medicines.searching")
+                : t("medicines.scan.readingLabel")
           }
         />
       )}

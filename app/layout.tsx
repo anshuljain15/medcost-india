@@ -10,8 +10,11 @@ import SiteHeader from "@/components/chrome/SiteHeader";
 import SiteFooter from "@/components/chrome/SiteFooter";
 import TabBar from "@/components/chrome/TabBar";
 
-// latin-ext carries the rupee sign (U+20B9).
-const inter = Inter({ subsets: ["latin", "latin-ext"], variable: "--font-inter", display: "swap" });
+// Only "latin" is preloaded. The rupee sign (U+20B9) lives in the latin-ext
+// face, which next/font still declares (all of Inter's faces are emitted,
+// each with its unicode-range), so it downloads only when a ₹ is on screen
+// instead of 85 KB at high priority on every first page view.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 // Joins the font stack only under html:lang(hi) (globals.css), and is not
 // preloaded, so an English page view never downloads it.
 const deva = Noto_Sans_Devanagari({
@@ -33,6 +36,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
+  // The OS-based defaults (= --canvas in each theme). NO_FLASH_THEME_SCRIPT
+  // and ThemeProvider put a theme-color meta for the theme actually shown
+  // ahead of these, so an in-app Light/Dark choice also colours the browser bar.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f5f5f7" },
     { media: "(prefers-color-scheme: dark)", color: "#000000" },
@@ -44,6 +50,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const medicinesMeta = getMedicinesMeta();
   return (
     // The font variables sit on <html> so --font-stack resolves at :root.
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${deva.variable}`}>
@@ -59,9 +66,12 @@ export default function RootLayout({
           <LanguageProvider>
             <LiveRegionProvider>
               <SkipLink />
-              {/* Server-side read; only the date string reaches the browser
-                  (for the search sheet's Jan Aushadhi footnote). */}
-              <SiteHeader medicinesDate={getMedicinesMeta().janAushadhi.snapshotDate} />
+              {/* Server-side read; only the Jan Aushadhi date and the brand
+                  source credit reach the browser (search sheet footnotes). */}
+              <SiteHeader
+                medicinesDate={medicinesMeta.janAushadhi.snapshotDate}
+                medicinesBrands={medicinesMeta.brands}
+              />
               <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
                 {children}
               </main>

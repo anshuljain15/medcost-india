@@ -20,6 +20,9 @@ export function Money({ value, perUnit }: { value: number | null; perUnit?: bool
 /**
  * "₹1,70,000 – ₹6,90,000". Each number is unbreakable and a no-break space
  * holds the dash to the low end, so the line can wrap only after the dash.
+ *
+ * With only one end known it says so in words ("From ₹4,000" / "₹4,000 से
+ * शुरू", "Up to ₹9,000" / "₹9,000 तक"), never "₹4,000 – Not listed".
  */
 export function MoneyRange({
   low,
@@ -33,6 +36,22 @@ export function MoneyRange({
   const { t } = useTranslation();
   if (!isAmount(low) && !isAmount(high)) return <span className="text-label-2">{t("common.notListed")}</span>;
   if (isAmount(low) && isAmount(high) && low === high) return <Money value={low} perUnit={perUnit} />;
+  if (isAmount(low) !== isAmount(high)) {
+    // A translated phrase with <Money> in place of {amount}, so the figure
+    // still goes through Money and stays unbreakable.
+    const marker = "\u0000";
+    const text = t(isAmount(low) ? "common.fromAmount" : "common.upToAmount", { amount: marker });
+    const at = text.indexOf(marker);
+    const amount = <Money value={isAmount(low) ? low : high} perUnit={perUnit} />;
+    if (at < 0) return amount;
+    return (
+      <span className="tabular-nums">
+        {text.slice(0, at)}
+        {amount}
+        {text.slice(at + marker.length)}
+      </span>
+    );
+  }
   return (
     <span className="tabular-nums">
       <Money value={low} perUnit={perUnit} />

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getMedicineRefs, getMedicinesMeta } from "@/lib/medicines";
+import { getMedicinesMeta } from "@/lib/medicines";
 import BillCheckView from "@/components/BillCheckView";
 
 export const metadata: Metadata = {
@@ -9,7 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function CheckBillPage() {
-  // Only the reference slice (~1,400 small rows) and the source meta cross to
-  // the client; lib/medicines.ts is server-only.
-  return <BillCheckView refs={getMedicineRefs()} meta={getMedicinesMeta()} />;
+  // Only the source meta crosses to the client; lib/medicines.ts is
+  // server-only. The ~1,400 reference prices are a static file
+  // (public/data/search/medicine-refs.json, written by
+  // scripts/build-search-index.mjs) that the view fetches when the first
+  // line appears, so they no longer ride in this page's HTML.
+  return <BillCheckView meta={getMedicinesMeta()} />;
 }

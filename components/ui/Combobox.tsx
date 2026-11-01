@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { norm, prepare, prepareQuery, scoreBest, type Prepared } from "@/components/search/match";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 import { Icon } from "./Icon";
 import { IconButton } from "./IconButton";
@@ -10,43 +11,53 @@ import { FieldError, FieldHint, FieldLabel, INPUT_CLASS, describedBy, type Field
 
 export type ComboOption = { value: string; label: string; group?: string; keywords?: string[]; lang?: "en" | "hi" };
 
+type Item = { value: string; label: string; lang?: "en" | "hi" };
 type Indexed = { option: ComboOption; index: number };
 type Section = { key: string; label: string | null; items: Indexed[] };
+/** An option with its haystacks normalised once per options array. */
+type PreparedOption = { option: ComboOption; order: number; hays: Prepared[]; exact: string };
 
-const norm = (s: string) => s.toLowerCase().normalize("NFC");
-const WORD_SPLIT = /[\s\-–—/(),.:;]+/;
+/**
+ * Lists longer than LONG_LIST (the share-bill hospital picker has up to ~600
+ * hospitals in a city) render only the first SHOW_LIMIT matches, with a
+ * "keep typing" line, so a keystroke never re-renders hundreds of rows.
+ */
+const LONG_LIST = 100;
+const SHOW_LIMIT = 50;
 
-/** exact prefix (3) > word start (2) > substring (1) > no match (0), over label + keywords. */
-function score(option: ComboOption, q: string): number {
-  let best = 0;
-  for (const hay of [option.label, ...(option.keywords ?? [])]) {
-    const s = norm(hay);
-    if (s.startsWith(q)) return 3;
-    if (!s.includes(q)) continue;
-    best = Math.max(best, s.split(WORD_SPLIT).some((w) => w.startsWith(q)) ? 2 : 1);
-  }
-  return best;
+function prepareOptions(options: ComboOption[]): PreparedOption[] {
+  return options.map((option, order) => ({
+    option,
+    order,
+    hays: [prepare(option.label), ...(option.keywords ?? []).map(prepare)],
+    exact: norm(option.label).trim(),
+  }));
 }
 
+/**
+ * Filter (the shared matcher in components/search/match.ts: prefix > word
+ * start > substring, filler words and Hindi oblique forms as a fallback),
+ * group, and cap. `matches` counts every match; `shown` only the rendered ones.
+ */
 function buildSections(
-  options: ComboOption[],
+  prepared: PreparedOption[],
   query: string,
   groupOrder: string[] | undefined,
   groupLabel: ((g: string) => string) | undefined
-): { sections: Section[]; count: number } {
-  const q = norm(query.trim());
-  let ranked = options.map((option, i) => ({ option, i, s: q ? score(option, q) : 1 }));
-  if (q) ranked = ranked.filter((r) => r.s > 0).sort((a, b) => b.s - a.s || a.i - b.i);
+): { sections: Section[]; shown: number; matches: number } {
+  const q = prepareQuery(query);
+  let ranked = prepared.map((p) => ({ p, s: q ? scoreBest(p.hays, q) : 1 }));
+  if (q) ranked = ranked.filter((r) => r.s > 0).sort((a, b) => b.s - a.s || a.p.order - b.p.order);
 
   const byGroup = new Map<string, ComboOption[]>();
   const seen: string[] = [];
-  for (const { option } of ranked) {
-    const g = option.group ?? "";
+  for (const { p } of ranked) {
+    const g = p.option.group ?? "";
     if (!byGroup.has(g)) {
       byGroup.set(g, []);
       seen.push(g);
     }
-    byGroup.get(g)!.push(option);
+    byGroup.get(g)!.push(p.option);
   }
   const order = groupOrder ?? [];
   const keys = [
@@ -55,13 +66,19 @@ function buildSections(
     ...seen.filter((g) => g !== "" && !order.includes(g)),
   ];
 
+  const limit = prepared.length > LONG_LIST ? SHOW_LIMIT : Infinity;
   let index = 0;
-  const sections = keys.map((key) => ({
-    key,
-    label: key ? (groupLabel ? groupLabel(key) : key) : null,
-    items: byGroup.get(key)!.map((option) => ({ option, index: index++ })),
-  }));
-  return { sections, count: index };
+  const sections: Section[] = [];
+  for (const key of keys) {
+    if (index >= limit) break;
+    const items: Indexed[] = [];
+    for (const option of byGroup.get(key)!) {
+      if (index >= limit) break;
+      items.push({ option, index: index++ });
+    }
+    sections.push({ key, label: key ? (groupLabel ? groupLabel(key) : key) : null, items });
+  }
+  return { sections, shown: index, matches: ranked.length };
 }
 
 /**
@@ -72,8 +89,16 @@ function buildSections(
  * blur timeout. Below 768px it scrolls itself to the top of the screen on
  * focus so the list has room above the keyboard.
  *
+ * A match is never picked for the person. Leaving the field (Tab, a tap
+ * outside, focus elsewhere) commits only an option they arrowed to, or typed
+ * text that equals exactly one option's label. Otherwise the typed text stays
+ * and a note under the field asks them to choose from the list, so a field
+ * never looks answered while it holds no value.
+ *
  * `footerOption` (e.g. "My treatment isn't in this list") is always last and
- * never filtered out.
+ * never filtered out. `onChange` also gets the text typed before the pick
+ * (so a "not in this list" form can start from it), and `onQueryChange`
+ * reports the typed text while nothing is picked ("" once something is).
  */
 export function Combobox({
   id,
@@ -85,6 +110,7 @@ export function Combobox({
   groupLabel,
   value,
   onChange,
+  onQueryChange,
   placeholder,
   footerOption,
 }: FieldBase & {
@@ -92,7 +118,8 @@ export function Combobox({
   groupOrder?: string[];
   groupLabel?: (g: string) => string;
   value: string | null;
-  onChange: (v: string | null) => void;
+  onChange: (v: string | null, typed?: string) => void;
+  onQueryChange?: (text: string) => void;
   placeholder?: string;
   footerOption?: { value: string; label: string };
 }) {
@@ -103,31 +130,93 @@ export function Combobox({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
+  // An option reached with the arrows or the pointer (-1: none).
   const [active, setActive] = useState(-1);
+  // While typing, the first match is active so Enter picks it.
+  const [autoFirst, setAutoFirst] = useState(false);
   // True while the active option was reached with the arrow keys: it then also
   // gets the inset focus ring, since bg-fill alone is too faint on bg-elevated.
   const [keyboardNav, setKeyboardNav] = useState(false);
+  // The typed text the "choose from the list" note was last announced for.
+  const nudged = useRef<string | null>(null);
 
   const listboxId = `${id}-listbox`;
   const labelId = `${id}-label`;
+  const noteId = `${id}-pick-note`;
   const optionId = (i: number) => `${id}-opt-${i}`;
+
+  const prepared = useMemo(() => prepareOptions(options), [options]);
 
   const selectedLabel =
     options.find((o) => o.value === value)?.label ?? (footerOption && footerOption.value === value ? footerOption.label : null);
   const inputValue = editing ? query : (selectedLabel ?? "");
 
   const filter = editing ? query : "";
-  const { sections, count } = buildSections(options, filter, groupOrder, groupLabel);
-  const flat: { value: string; label: string }[] = sections.flatMap((s) => s.items.map((it) => it.option));
+  const { sections, shown, matches } = buildSections(prepared, filter, groupOrder, groupLabel);
+  const flat: Item[] = sections.flatMap((s) => s.items.map((it) => it.option));
   if (footerOption) flat.push(footerOption);
   const total = flat.length;
-  const activeIndex = active >= 0 && active < total ? active : -1;
+  const hidden = matches - shown;
+  let activeIndex = active >= 0 && active < total ? active : -1;
+  if (activeIndex < 0 && autoFirst && editing && query.trim() && shown > 0) activeIndex = 0;
+
+  const trimmed = query.trim();
+  const unresolved = editing && !open && value === null && trimmed !== "";
+  const nudgeText = footerOption
+    ? t("search.pickFromListOr", { option: footerOption.label })
+    : t("search.pickFromList");
+
+  function choose(item: Item) {
+    const typed = editing ? query.trim() : "";
+    onChange(item.value, typed);
+    onQueryChange?.("");
+    setEditing(false);
+    setQuery("");
+    setOpen(false);
+    setActive(-1);
+    setAutoFirst(false);
+    nudged.current = null;
+  }
+
+  /** The one option whose label equals the typed text, or null. */
+  function exactOption(text: string): ComboOption | null {
+    const n = norm(text).trim();
+    let found: ComboOption | null = null;
+    for (const p of prepared) {
+      if (p.exact !== n) continue;
+      if (found) return null; // two options share the label: let the person choose
+      found = p.option;
+    }
+    return found;
+  }
+
+  /** The list closes without a pick: commit an exact match, or ask for a choice. */
+  function settle() {
+    setOpen(false);
+    setKeyboardNav(false);
+    if (!editing || value !== null || !trimmed) return;
+    const exact = exactOption(trimmed);
+    if (exact) {
+      choose(exact);
+      return;
+    }
+    if (nudged.current !== trimmed) {
+      nudged.current = trimmed;
+      announce(nudgeText);
+    }
+  }
+
+  // The outside-pointerdown listener always calls the latest settle().
+  const settleRef = useRef(settle);
+  useEffect(() => {
+    settleRef.current = settle;
+  });
 
   // Close on a pointerdown anywhere outside the field and its list.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) settleRef.current();
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
@@ -140,36 +229,29 @@ export function Combobox({
   }, [open, activeIndex, id]);
 
   // Announce the number of matches once typing pauses.
-  const trimmed = query.trim();
   useEffect(() => {
     if (!open || !editing || !trimmed) return;
-    const timer = window.setTimeout(() => announce(t("search.count", { n: count })), 600);
+    const timer = window.setTimeout(() => announce(t("search.count", { n: matches })), 600);
     return () => window.clearTimeout(timer);
-  }, [open, editing, trimmed, count, announce, t]);
+  }, [open, editing, trimmed, matches, announce, t]);
 
   const selectedIndex = flat.findIndex((o) => o.value === value);
 
   function openList(initial: number) {
     setOpen(true);
     setActive(initial);
-  }
-
-  function pick(i: number) {
-    const item = flat[i];
-    if (!item) return;
-    onChange(item.value);
-    setEditing(false);
-    setQuery("");
-    setOpen(false);
-    setActive(-1);
+    setAutoFirst(false);
   }
 
   function clear(reopen: boolean) {
     if (value !== null) onChange(null);
+    onQueryChange?.("");
     setEditing(false);
     setQuery("");
     setActive(-1);
+    setAutoFirst(false);
     setOpen(reopen);
+    nudged.current = null;
   }
 
   function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -177,17 +259,28 @@ export function Combobox({
     setQuery(text);
     setEditing(true);
     setOpen(true);
-    const matches = text.trim() ? buildSections(options, text, groupOrder, groupLabel).count : 0;
-    setActive(matches > 0 ? 0 : -1);
+    setActive(-1);
+    setAutoFirst(text.trim() !== "");
+    setKeyboardNav(false);
+    nudged.current = null;
+    onQueryChange?.(text);
     if (value !== null) onChange(null);
   }
 
   function onFocus() {
     setOpen(true);
     setActive(selectedIndex);
+    setAutoFirst(editing);
     if (window.matchMedia("(max-width: 47.99rem)").matches) {
       wrapRef.current?.scrollIntoView({ block: "start" });
     }
+  }
+
+  function move(delta: 1 | -1) {
+    if (total === 0) return;
+    const next = activeIndex < 0 ? (delta === 1 ? 0 : total - 1) : (activeIndex + delta + total) % total;
+    setActive(next);
+    setAutoFirst(false);
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -196,18 +289,18 @@ export function Combobox({
       case "ArrowDown":
         e.preventDefault();
         if (!open) openList(e.altKey ? activeIndex : selectedIndex >= 0 ? selectedIndex : 0);
-        else if (total > 0) setActive(activeIndex < 0 || activeIndex >= total - 1 ? 0 : activeIndex + 1);
+        else move(1);
         break;
       case "ArrowUp":
         e.preventDefault();
         if (!open) openList(selectedIndex >= 0 ? selectedIndex : total - 1);
-        else if (total > 0) setActive(activeIndex <= 0 ? total - 1 : activeIndex - 1);
+        else move(-1);
         break;
       case "Enter":
         if (open) {
           // Never submit the surrounding form while the list is open.
           e.preventDefault();
-          if (activeIndex >= 0) pick(activeIndex);
+          if (activeIndex >= 0) choose(flat[activeIndex]);
         }
         break;
       case "Escape":
@@ -220,7 +313,10 @@ export function Combobox({
         }
         break;
       case "Tab":
-        setOpen(false);
+        // ARIA APG: Tab accepts an option the person arrowed to; focus then
+        // moves on as usual. Anything else is settled like a blur.
+        if (open && keyboardNav && activeIndex >= 0) choose(flat[activeIndex]);
+        else settle();
         break;
     }
   }
@@ -229,10 +325,10 @@ export function Combobox({
     // Focus moved to another control outside the widget (not an option click,
     // which keeps focus in the input). No timeout involved.
     const next = e.relatedTarget as Node | null;
-    if (next && wrapRef.current && !wrapRef.current.contains(next)) setOpen(false);
+    if (next && wrapRef.current && !wrapRef.current.contains(next)) settle();
   }
 
-  function renderOption(item: { value: string; label: string; lang?: "en" | "hi" }, index: number) {
+  function renderOption(item: Item, index: number) {
     const isActive = index === activeIndex;
     return (
       <li
@@ -241,10 +337,13 @@ export function Combobox({
         role="option"
         aria-selected={isActive}
         lang={item.lang}
-        onClick={() => pick(index)}
+        onClick={() => choose(item)}
         onPointerMove={() => {
           if (keyboardNav) setKeyboardNav(false);
-          if (!isActive) setActive(index);
+          if (!isActive) {
+            setActive(index);
+            setAutoFirst(false);
+          }
         }}
         className={cx(
           "flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2 text-body text-label aria-selected:bg-fill",
@@ -274,7 +373,7 @@ export function Combobox({
           aria-controls={listboxId}
           aria-activedescendant={open && activeIndex >= 0 ? optionId(activeIndex) : undefined}
           aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy(id, hint, error)}
+          aria-describedby={describedBy(id, hint, error, unresolved && noteId)}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="none"
@@ -302,14 +401,17 @@ export function Combobox({
             className="absolute right-0 top-1/2 -translate-y-1/2"
           />
         )}
+        {/* z-35: above the phone StickyActionBar (z-30), under the sticky
+            header (z-40). globals.css also hides that bar while a list is open.
+            The height cap keeps the list above the keyboard on short screens. */}
         <div
           hidden={!open}
           // Keep focus in the input when an option is pressed.
           onPointerDown={(e) => e.preventDefault()}
           onMouseDown={(e) => e.preventDefault()}
-          className="absolute inset-x-0 top-full z-30 mt-2 max-h-[min(50dvh,360px)] overflow-y-auto rounded-card bg-elevated py-2 shadow-pop"
+          className="absolute inset-x-0 top-full z-35 mt-2 max-h-[max(9rem,min(50dvh,calc(100dvh_-_14rem),360px))] overflow-y-auto rounded-card bg-elevated py-2 shadow-pop"
         >
-          {count === 0 && (
+          {matches === 0 && (
             <p className="px-4 py-3 text-callout text-label-2">{t("search.count", { n: 0 })}</p>
           )}
           <ul id={listboxId} role="listbox" aria-labelledby={labelId}>
@@ -331,10 +433,21 @@ export function Combobox({
                 <Fragment key="_ungrouped">{s.items.map((it) => renderOption(it.option, it.index))}</Fragment>
               )
             )}
-            {footerOption && renderOption(footerOption, count)}
+            {hidden > 0 && (
+              <li role="presentation" className="px-4 py-3 text-callout text-label-2">
+                {t("search.keepTyping", { n: hidden })}
+              </li>
+            )}
+            {footerOption && renderOption(footerOption, shown)}
           </ul>
         </div>
       </div>
+      {unresolved && (
+        <p id={noteId} className="mt-2 flex gap-1.5 text-callout text-label-2">
+          <Icon name="info" className="mt-0.5 size-4.5 shrink-0" />
+          <span>{nudgeText}</span>
+        </p>
+      )}
       <FieldError id={id} message={error} />
     </div>
   );

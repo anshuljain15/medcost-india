@@ -12,6 +12,12 @@ const TABS: { key: string; href: string; tabKey: string; icon: IconName; match: 
   ...SECTIONS.map(({ key, href, tabKey, icon, match }) => ({ key, href, tabKey, icon, match })),
 ];
 
+// The active tab is marked three ways, never by colour alone: accent colour,
+// semibold (500 -> 600) and a 3px bar along its top edge. The bar is a
+// border, not a background, so it survives forced-colors mode.
+const TAB =
+  "relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-caption font-medium text-label-2 data-active:font-semibold data-active:text-accent data-active:before:absolute data-active:before:inset-x-5 data-active:before:top-0 data-active:before:rounded-b-full data-active:before:border-t-[3px] data-active:before:border-accent";
+
 /**
  * Phones only (<768px): 4 equal tabs with labels always visible (§2.4, §7).
  * Not rendered on focus routes. `data-tabbar` lets globals.css pad the body
@@ -35,7 +41,7 @@ export default function TabBar() {
             href={tab.href}
             aria-current={current}
             data-active={current ? "" : undefined}
-            className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-caption text-label-2 data-active:text-accent"
+            className={TAB}
           >
             <Icon name={tab.icon} className="size-6" />
             <span>{t(tab.tabKey)}</span>

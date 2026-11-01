@@ -102,7 +102,8 @@ export default function MedicineDetailView({ group, meta }: { group: MedicineGro
       >
         {(hasJaProduct || ceiling) && (
           <div className="mb-3 flex flex-wrap gap-1.5">
-            {hasJaProduct && <Badge tone="accent">{t("medicines.badgeJa")}</Badge>}
+            {/* Neutral: teal marks only things you can press (§0.1.6), and this is a plain label. */}
+            {hasJaProduct && <Badge icon="check">{t("medicines.badgeJa")}</Badge>}
             {ceiling && <Badge>{t("medicines.badgeNppa")}</Badge>}
           </div>
         )}
@@ -210,8 +211,10 @@ export default function MedicineDetailView({ group, meta }: { group: MedicineGro
               </InsetGroup>
               {moreBrands.length > 0 && (
                 <div className="mt-3">
-                  <Disclosure summary={t("medicines.showAllBrands", { n: group.brands.length })}>
-                    <ul className="-mx-4 border-t border-hairline">
+                  {/* "Show 40 more", not "Show all 50": it opens only the rest, and brands.length
+                      is itself capped below brandCount for large groups. */}
+                  <Disclosure summary={t("common.showMore", { n: moreBrands.length })}>
+                    <ul className="-mx-4 -mb-4 overflow-hidden rounded-b-card border-t border-hairline">
                       {moreBrands.map((b, i) => (
                         <BrandRow key={`${b.name}-${b.packLabel}-${i}`} brand={b} ja={ja} perUnitWord={perUnitWord} />
                       ))}
@@ -249,7 +252,8 @@ export default function MedicineDetailView({ group, meta }: { group: MedicineGro
             )}
             {hasRelated && (
               <Disclosure summary={t("medicines.relatedHeading")}>
-                <Callout tone="warn">{t("medicines.relatedNote")}</Callout>
+                {/* A caution, not an "above" result: amber stays reserved for "above" (§0.1.6). */}
+                <Callout icon="alert">{t("medicines.relatedNote")}</Callout>
                 <RelatedGroup id="related-strengths" title={t("medicines.relatedStrengths")} links={group.relatedStrengths} />
                 <RelatedGroup id="related-extra" title={t("medicines.relatedExtraSalt")} links={group.relatedExtraSalt} />
               </Disclosure>

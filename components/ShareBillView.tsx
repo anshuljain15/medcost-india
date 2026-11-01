@@ -5,12 +5,14 @@ import {
   BILL_SHARING_ENABLED,
   CATEGORIES,
   COMPONENTS,
+  MAX_STAY_DAYS,
   PAYMENTS,
   UNLOCK_BILLS,
   UNLOCK_BROWSERS,
   getBillStats,
   getBrowserId,
   submitBill,
+  submitErrorKind,
   type BillReport,
   type BillStats,
   type Category,
@@ -18,6 +20,7 @@ import {
   type HospitalType,
   type Payment,
   type RoomType,
+  type SubmitErrorKind,
 } from "@/lib/billReports";
 import { formatINR } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
@@ -47,7 +50,6 @@ import {
   SectionHeader,
   Select,
   Skeleton,
-  StatTile,
   StepHeader,
   StickyActionBar,
   TextField,
@@ -68,8 +70,13 @@ import {
 // Back button: every screen change pushes {shareStep} with a #step-n hash, and
 // popstate steps back, so Android's back button returns to the previous
 // question. The draft lives in sessionStorage until the bill is sent.
+//
+// Closed (no Supabase env): the intro says so, Start is a disabled button, and
+// the duration and the stats box are hidden, since neither can apply.
 
 const OTHER = "__other__";
+/** Stand-in for one placeholder, so a translated sentence can carry a node (DataText, MoneyRange). */
+const MARK = "\u0000";
 const TOTAL_STEPS = 6;
 const REVIEW_STEP = 6;
 const MAX_SURPRISES = 10;
@@ -141,7 +148,11 @@ const EMPTY: Form = {
 
 type Problem = { fieldId: string; message: string };
 type FocusTarget = "heading" | "summary" | "submitError" | { id: string };
-type SubmitState = { kind: "idle" } | { kind: "sending" } | { kind: "done"; id: string } | { kind: "error"; code: string };
+type SubmitState =
+  | { kind: "idle" }
+  | { kind: "sending" }
+  | { kind: "done"; id: string }
+  | { kind: "error"; code: SubmitErrorKind };
 type StatsState = { kind: "loading" } | { kind: "none" } | { kind: "ready"; data: BillStats };
 
 const money = (s: string): number | null => {
@@ -218,6 +229,38 @@ function clearDraft() {
   } catch {
     // ignore
   }
+}
+
+/** The typed, unpicked hospital name, once: reading it clears it. */
+function takeTyped(ref: React.RefObject<string>): string {
+  const typed = ref.current.trim().slice(0, 120);
+  ref.current = "";
+  return typed;
+}
+
+/** text with MARK replaced by node; text unchanged when it has no MARK. */
+function withNode(text: string, node: React.ReactNode): React.ReactNode {
+  const at = text.indexOf(MARK);
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      {node}
+      {text.slice(at + MARK.length)}
+    </>
+  );
+}
+
+/**
+ * A typed, unpicked hospital name is kept as "My hospital isn't in this list"
+ * plus that name (sent as hospital_other, never shown publicly). Coming back
+ * to step 2 then shows the name in the "Hospital name" field, where it can be
+ * corrected, instead of an empty search box.
+ */
+function keepTypedHospital(f: Form, typed: string): Form {
+  return typed && f.city && f.city !== OTHER && f.hospitalPick === ""
+    ? { ...f, hospitalPick: OTHER, hospitalOther: typed }
+    : f;
 }
 
 /** bill_stats() output, made safe to render even if the response is malformed. */
@@ -299,6 +342,10 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
   const pendingFocus = useRef<FocusTarget | null>(null);
   const returnToReview = useRef(false);
   const doneRef = useRef(false);
+  // Text typed in the step-2 hospital search but not picked (Combobox
+  // onQueryChange). Leaving step 2 keeps it as "not in this list" + that name
+  // (keepTypedHospital) instead of dropping it without a word.
+  const hospitalTyped = useRef("");
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const hiData = locale === "hi" ? ("en" as const) : undefined;
@@ -328,7 +375,17 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
   useEffect(() => {
     function onPopState(e: PopStateEvent) {
       const raw = (e.state as { shareStep?: unknown } | null)?.shareStep;
-      let n = typeof raw === "number" && raw >= 1 && raw <= TOTAL_STEPS ? raw : 0;
+      const known = typeof raw === "number" && raw >= 0 && raw <= TOTAL_STEPS ? raw : null;
+      // A same-page #fragment link (the skip link to #main, an error-summary
+      // link whose field has gone) also fires popstate, with no state. That is
+      // not a step change: stay on this screen instead of falling back to the
+      // intro. Only an entry with no hash at all is the original intro entry.
+      const hash = window.location.hash;
+      if (known === null && hash !== "" && !/^#step-[1-6]$/.test(hash)) return;
+      // Browser Back from step 2 keeps a hospital name that was typed, not picked.
+      const typed = takeTyped(hospitalTyped);
+      if (typed) setForm((f) => keepTypedHospital(f, typed));
+      let n = known ?? 0;
       returnToReview.current = false;
       if (doneRef.current) {
         // Back from the thank-you screen: the form was sent and cleared, so go
@@ -477,9 +534,14 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
       p3.push({ fieldId: "month", message: t("share.err.monthFuture") });
     if (!form.admitted) p3.push({ fieldId: "admitted", message: t("share.err.admitted") });
     if (form.admitted === "yes") {
+      // The bounds mirror the stay_days / icu_days checks on bill_reports, so a
+      // value the database would refuse is caught here, next to its field.
       const days = int(form.stayDays);
-      if (days === null || days < 1) p3.push({ fieldId: "stayDays", message: t("share.err.stayDays") });
-      if (form.icuDays !== "" && int(form.icuDays) === null)
+      if (days === null || days < 1 || days > MAX_STAY_DAYS)
+        p3.push({ fieldId: "stayDays", message: t("share.err.stayDays", { max: MAX_STAY_DAYS }) });
+      // ICU days are part of the stay.
+      const icu = form.icuDays === "" ? 0 : int(form.icuDays);
+      if (icu === null || icu > MAX_STAY_DAYS || (days !== null && icu > days))
         p3.push({ fieldId: "icuDays", message: t("share.err.icuDays") });
       if (!form.roomType) p3.push({ fieldId: "roomType", message: t("share.err.roomType") });
     }
@@ -536,6 +598,10 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
     }
     const next = returnToReview.current ? REVIEW_STEP : step + 1;
     returnToReview.current = false;
+    if (step === 2) {
+      const typed = takeTyped(hospitalTyped);
+      if (typed) setForm((f) => keepTypedHospital(f, typed));
+    }
     goTo(next);
   }
 
@@ -545,6 +611,8 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
   }
 
   function back() {
+    const typed = takeTyped(hospitalTyped);
+    if (typed) setForm((f) => keepTypedHospital(f, typed));
     window.history.back();
   }
 
@@ -571,7 +639,9 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
 
     const admitted = form.admitted === "yes";
     const hospitalSlug = pickedSlug || null;
-    const typedHospital = form.city === OTHER || form.hospitalPick === OTHER ? form.hospitalOther.trim() : "";
+    // Whenever no directory hospital is picked, the typed name is what goes
+    // (the review row shows the same thing).
+    const typedHospital = hospitalSlug ? "" : form.hospitalOther.trim();
     const report: BillReport = {
       browser_id: getBrowserId(),
       city: form.city === OTHER ? form.cityOther.trim() : form.city,
@@ -610,17 +680,23 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
       setSubmit({ kind: "done", id });
       window.history.replaceState({ shareStep: 0 }, "", pathOnly());
     } catch (err) {
-      const code = err instanceof Error ? err.message : "";
       pendingFocus.current = "submitError";
-      setSubmit({ kind: "error", code: code === "rate_limited" || code === "busy" ? code : "generic" });
+      setSubmit({ kind: "error", code: submitErrorKind(err) });
     }
   }
 
   // ---- Field handlers -------------------------------------------------------
-  function pickProcedure(v: string | null) {
+  function pickProcedure(v: string | null, typed?: string) {
     setKindEditing(false);
     if (v === null) setForm((f) => ({ ...f, procedure: "", category: "" }));
-    else if (v === OTHER) setForm((f) => ({ ...f, procedure: OTHER, category: "" }));
+    // "Not in this list" after typing a name: start the name field from it.
+    else if (v === OTHER)
+      setForm((f) => ({
+        ...f,
+        procedure: OTHER,
+        category: "",
+        procedureOther: f.procedureOther || (typed ?? "").slice(0, 120),
+      }));
     else setForm((f) => ({ ...f, procedure: v, procedureOther: "", category: procedureGroup(v).shareCategory }));
   }
 
@@ -674,7 +750,8 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
   if (step === 0) {
     return (
       <PageShell>
-        <div className={BILL_SHARING_ENABLED ? "pb-28 md:pb-0" : undefined}>
+        {/* Room for the phone's StickyActionBar comes from the body (app/globals.css). */}
+        <div>
           <div className="mb-8 md:mb-10">
             <ScreenTitle ref={headingRef}>{t("share.title")}</ScreenTitle>
             <p className="mt-3 max-w-[60ch] text-lead text-label-2">{t("share.subtitle")}</p>
@@ -685,7 +762,7 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
             <ListRow leading="users" title={t("share.promiseNoName")} />
             <ListRow leading="hospital" title={t("share.promiseHospital")} />
           </InsetGroup>
-          <p className="mt-3 px-4 text-footnote text-label-2">{t("share.duration")}</p>
+          {BILL_SHARING_ENABLED && <p className="mt-3 px-4 text-footnote text-label-2">{t("share.duration")}</p>}
 
           {BILL_SHARING_ENABLED ? (
             <StickyActionBar>
@@ -694,72 +771,96 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
               </Button>
             </StickyActionBar>
           ) : (
+            // Closed is information, not a warning: amber means only "above" (§0.1).
             <div className="mt-8 space-y-4">
-              <Callout tone="warn">{t("share.notOpen")}</Callout>
+              <Callout tone="info">{t("share.notOpen")}</Callout>
               <Button block disabled>
                 {t("share.closedButton")}
               </Button>
             </div>
           )}
 
-          <section aria-labelledby="share-stats" className="mt-12 md:mt-16">
-            <SectionHeader id="share-stats" title={t("share.stats.heading")} />
-            <PatientReported>
-              <p className="text-callout text-label-2">
-                {t("share.stats.rule", { n: UNLOCK_BILLS, b: UNLOCK_BROWSERS })}
-              </p>
-              {stats.kind === "loading" && <Skeleton className="h-24" />}
-              {stats.kind === "none" && <p>{t("share.stats.none")}</p>}
-              {stats.kind === "ready" && (
-                <>
-                  <StatTile label={t("share.stats.approved")} value={stats.data.approved.toLocaleString("en-IN")} />
-                  {stats.data.unlocked.length > 0 ? (
-                    <ul className="space-y-4">
-                      {stats.data.unlocked.map((g) => (
-                        <li key={`${g.city}-${g.procedure}`}>
-                          <p className="text-body text-label">
-                            <DataText>
-                              {procName.get(g.procedure) ?? g.procedure} · {g.city}
-                            </DataText>
-                          </p>
-                          <p className="mt-1 text-title3 tabular-nums text-label">
-                            <Money value={Math.round(g.median)} />
-                          </p>
-                          <p className="mt-1 text-callout text-label-2">
-                            {t("share.stats.middleHalf")}{" "}
-                            <MoneyRange low={Math.round(g.p25)} high={Math.round(g.p75)} />
-                            {" · "}
-                            {t("share.stats.bills", { n: g.n })}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>{t("share.stats.none")}</p>
-                  )}
-                  {stats.data.progress.length > 0 && (
-                    <ul className="space-y-1 text-callout text-label-2">
-                      {stats.data.progress.slice(0, 6).map((g) => (
-                        <li key={`${g.city}-${g.procedure}`}>
-                          {t("share.stats.progress", {
-                            proc: procName.get(g.procedure) ?? g.procedure,
-                            city: g.city,
-                            n: g.n,
-                            total: UNLOCK_BILLS,
-                          })}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {stats.data.unlocked.length > 0 && (
-                    <p className="text-footnote text-label-2">{t("share.stats.unverified")}</p>
-                  )}
-                </>
-              )}
-            </PatientReported>
-          </section>
+          {/* Without Supabase there are no figures to fetch, and "yours could be
+              the first" would invite something nobody can do yet. */}
+          {BILL_SHARING_ENABLED && (
+            <section aria-labelledby="share-stats" className="mt-12 md:mt-16">
+              <SectionHeader id="share-stats" title={t("share.stats.heading")} />
+              <PatientReported>
+                <p className="text-callout text-label-2">
+                  {t("share.stats.rule", { n: UNLOCK_BILLS, b: UNLOCK_BROWSERS })}
+                </p>
+                {stats.kind === "loading" && <Skeleton className="h-24" />}
+                {stats.kind === "none" && <p>{t("share.stats.none")}</p>}
+                {stats.kind === "ready" && (
+                  <>
+                    {/* A count in the sentence, not a StatTile: a white tile on this
+                        grey panel barely shows in light mode and reads as a hole in
+                        dark mode. */}
+                    <p className="text-callout text-label-2">
+                      <span className="text-title3 tabular-nums text-label">
+                        {stats.data.approved.toLocaleString("en-IN")}
+                      </span>{" "}
+                      {t("share.stats.approved")}
+                    </p>
+                    {stats.data.unlocked.length > 0 ? (
+                      <ul className="space-y-4">
+                        {stats.data.unlocked.map((g) => (
+                          <li key={`${g.city}-${g.procedure}`}>
+                            <p className="text-body text-label">
+                              <DataText>{procName.get(g.procedure) ?? g.procedure}</DataText> ·{" "}
+                              <DataText>{g.city}</DataText>
+                            </p>
+                            <p className="mt-2 text-footnote font-semibold text-label-2">{t("share.stats.median")}</p>
+                            <p className="text-title3 tabular-nums text-label">
+                              <Money value={Math.round(g.median)} />
+                            </p>
+                            <p className="mt-1 text-callout text-label-2">
+                              {withNode(
+                                t("share.stats.middleHalf", { range: MARK }),
+                                <MoneyRange low={Math.round(g.p25)} high={Math.round(g.p75)} />
+                              )}
+                              {" · "}
+                              {t("share.stats.bills", { n: g.n })}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>{t("share.stats.none")}</p>
+                    )}
+                    {stats.data.progress.length > 0 && (
+                      <ul className="space-y-1 text-callout text-label-2">
+                        {stats.data.progress.slice(0, 6).map((g) => {
+                          const proc = procName.get(g.procedure) ?? g.procedure;
+                          // bill_stats() also lists groups that have enough bills but
+                          // not yet from enough people; "7 of 5 bills" would read as
+                          // a mistake, so say what is missing. The procedure name is
+                          // data text inside the sentence (lang="en" under Hindi).
+                          return (
+                            <li key={`${g.city}-${g.procedure}`}>
+                              {withNode(
+                                g.n >= UNLOCK_BILLS
+                                  ? t("share.stats.waitingPeople", { proc: MARK, city: g.city, n: g.n })
+                                  : t("share.stats.progress", { proc: MARK, city: g.city, n: g.n, total: UNLOCK_BILLS }),
+                                <DataText>{proc}</DataText>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    {stats.data.unlocked.length > 0 && (
+                      <p className="text-footnote text-label-2">{t("share.stats.unverified")}</p>
+                    )}
+                  </>
+                )}
+              </PatientReported>
+            </section>
+          )}
 
-          <PageNotes anchor="patient-bills" />
+          <PageNotes anchor="patient-bills">
+            <p>{t("methodology.short3")}</p>
+          </PageNotes>
         </div>
       </PageShell>
     );
@@ -797,11 +898,19 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
             ) : (
               <Skeleton className="h-6 w-40" />
             )
-          ) : (form.city === OTHER || form.hospitalPick === OTHER) && form.hospitalOther.trim() ? (
+          ) : form.hospitalOther.trim() ? (
             <DataText>{form.hospitalOther}</DataText>
           ) : (
             notGiven
           ),
+          target: 2,
+        },
+        // A required answer that is sent, so it is shown here too; seeing
+        // "Private" or "Government" next to it also keeps "(not shown
+        // publicly)" from being read as a hospital type.
+        {
+          label: t("share.review.hospitalType"),
+          value: form.hospitalType ? t(`share.hospitalType.${form.hospitalType}`) : notGiven,
           target: 2,
         },
         {
@@ -833,7 +942,8 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
 
   return (
     <PageShell>
-      <form noValidate onSubmit={isReview ? onSend : onContinue} className="pb-28 md:pb-0">
+      {/* Room for the phone's StickyActionBar comes from the body (app/globals.css). */}
+      <form noValidate onSubmit={isReview ? onSend : onContinue}>
         <StepHeader step={step} total={TOTAL_STEPS} onBack={back} />
 
         <div className="mt-6 space-y-6">
@@ -853,7 +963,7 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
                   groupOrder={GROUP_ORDER}
                   groupLabel={(g) => t(`procedures.group.${g}`)}
                   value={form.procedure || null}
-                  onChange={pickProcedure}
+                  onChange={(v, typed) => pickProcedure(v, typed)}
                   footerOption={{ value: OTHER, label: t("share.q.procedureOther") }}
                   error={errorFor("procedure")}
                 />
@@ -922,7 +1032,11 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
                   },
                 ]}
                 value={form.city}
-                onChange={(v) => setForm((f) => ({ ...f, city: v as string, hospitalPick: "", hospitalOther: "" }))}
+                onChange={(v) => {
+                  // A new city starts the hospital question over.
+                  hospitalTyped.current = "";
+                  setForm((f) => ({ ...f, city: v as string, hospitalPick: "", hospitalOther: "" }));
+                }}
                 error={errorFor("city")}
               />
 
@@ -948,13 +1062,19 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
                       placeholder={t("share.q.hospitalSearch")}
                       options={hospitalOptions}
                       value={form.hospitalPick || null}
-                      onChange={(v) =>
+                      onChange={(v, typed) => {
+                        // "My hospital isn't in this list" picked after typing a
+                        // name: carry the name into the "Hospital name" field.
+                        const name = (typed ?? "").trim().slice(0, 120);
                         setForm((f) => ({
                           ...f,
                           hospitalPick: v ?? "",
-                          hospitalOther: v === OTHER ? f.hospitalOther : "",
-                        }))
-                      }
+                          hospitalOther: v === OTHER ? f.hospitalOther || name : "",
+                        }));
+                      }}
+                      onQueryChange={(text) => {
+                        hospitalTyped.current = text;
+                      }}
                       footerOption={{ value: OTHER, label: t("share.q.hospitalOther") }}
                     />
                   ) : (
@@ -1159,7 +1279,13 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
 
               <FieldGroup id="surprises" legend={t("share.q.surprises")} hint={t("share.q.surprisesHint")}>
                 {form.surprises.map((s, i) => (
-                  <div key={s.key} className="space-y-4 rounded-card bg-surface p-4">
+                  // Each card repeats the same two labels, so the group names which charge it is.
+                  <div
+                    key={s.key}
+                    role="group"
+                    aria-label={t("share.q.surpriseN", { n: i + 1 })}
+                    className="space-y-4 rounded-card bg-surface p-4"
+                  >
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
                         <TextField
@@ -1224,7 +1350,7 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
 
               <ChoiceList
                 name="consent"
-                legend={<span className="sr-only">{t("share.submit")}</span>}
+                legend={t("share.review.confirmLegend")}
                 type="checkbox"
                 options={[{ value: "yes", label: t("share.consent", { n: UNLOCK_BILLS, b: UNLOCK_BROWSERS }) }]}
                 value={form.consent ? ["yes"] : []}
@@ -1243,7 +1369,15 @@ export default function ShareBillView({ cities }: { cities: string[] }) {
 
         <StickyActionBar>
           {isReview ? (
-            <Button type="submit" block disabled={!BILL_SHARING_ENABLED || submit.kind === "sending"}>
+            // While sending: aria-disabled, not disabled, so focus stays on the
+            // button (a disabled one drops it to <body>) and a failure's alert
+            // is heard from where the person is. onSend ignores repeat presses.
+            <Button
+              type="submit"
+              block
+              disabled={!BILL_SHARING_ENABLED}
+              aria-disabled={submit.kind === "sending" ? true : undefined}
+            >
               {submit.kind === "sending" ? t("share.sending") : t("share.submit")}
             </Button>
           ) : (

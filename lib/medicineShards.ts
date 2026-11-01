@@ -10,6 +10,23 @@ export function normalize(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+/**
+ * The shards are Latin only (brand and salt names as printed on the strip).
+ * A name typed in Devanagari or another Indic script can never match, and
+ * normalize() would quietly keep just its digits ("डोलो 650" -> "650"), so the
+ * UI asks for English letters instead of searching. Covers U+0900 (Devanagari)
+ * to U+0DFF (Sinhala).
+ */
+export function hasIndicScript(text: string): boolean {
+  return /[ऀ-෿]/.test(text);
+}
+
+/**
+ * Our medicine data inherits CC BY-SA 4.0 from the Kaggle brand dataset
+ * (public/data/medicines/LICENSE.txt). Every visible licence name links here.
+ */
+export const MEDICINE_DATA_LICENCE_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
+
 export type MedicineHit = {
   name: string;
   /** "g" = the medicine group itself, "b" = one brand within it. */
@@ -55,7 +72,10 @@ export async function searchMedicines(query: string, limit = 20): Promise<Medici
   return scored.slice(0, limit).map((s) => s.hit);
 }
 
-/** Same PIN first, then the rest of the 3-digit postal area by PIN distance. */
+/**
+ * Same PIN first, then the rest of the 3-digit postal area ordered by PIN
+ * number. PIN order is not travel distance, and the UI never says "nearest".
+ */
 export async function findKendras(pincode: string): Promise<JanAushadhiKendra[]> {
   if (!/^[1-9]\d{5}$/.test(pincode)) return [];
   const area = await fetchStaticJson<JanAushadhiKendra[]>(`kendras/${pincode.slice(0, 3)}.json`, []);

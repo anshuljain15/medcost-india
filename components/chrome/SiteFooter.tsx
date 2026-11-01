@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DataText } from "@/components/ui/DataText";
 import { Icon } from "@/components/ui/Icon";
-import { INLINE_LINK_CLASS } from "@/components/ui/InlineLink";
+import { ExtLink, INLINE_LINK_CLASS } from "@/components/ui/InlineLink";
 import { NewTabNote } from "@/components/ui/NewTabNote";
 import { ThemeSwitch } from "@/components/ui/ThemeSwitch";
 import { cx } from "@/components/ui/href";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
-import { focusRouteFor } from "@/lib/nav";
+import { MEDICINE_DATA_LICENCE_URL } from "@/lib/medicineShards";
+import { CORRECTIONS_URL, focusRouteFor } from "@/lib/nav";
 import Logo from "./Logo";
 
 const LINK = "flex min-h-11 items-center hover:text-label hover:underline underline-offset-4";
@@ -17,9 +17,12 @@ const LINK = "flex min-h-11 items-center hover:text-label hover:underline underl
 // The creator credit (kept, §9.1).
 const CREDIT_HREF = "https://github.com/anshuljain15";
 
-// The six directory cities, in the spec's order. Names are data text; the
-// URL slug is the lowercased name, as everywhere else in the app.
-const CITIES = ["Bangalore", "Delhi", "Mumbai", "Chennai", "Hyderabad", "Pune"];
+// The six directory cities, in the spec's order, by URL slug. Their names come
+// from cities.* (in Devanagari under Hindi), like the city pages' titles.
+const CITIES = ["bangalore", "delhi", "mumbai", "chennai", "hyderabad", "pune"];
+
+/** Stand-in for {licence}, so the licence name can be a link inside the sentence. */
+const MARK = "\u0000";
 
 type FooterLink = { href: string; label: React.ReactNode; external?: boolean };
 
@@ -39,7 +42,9 @@ function FooterColumn({ title, links }: { title: string; links: FooterLink[] }) 
                 <NewTabNote />
               </a>
             ) : (
-              <Link href={link.href} className={LINK}>
+              // No viewport prefetch: footer links are rarely the next tap, and
+              // the city pages carry their whole hospital list as props.
+              <Link href={link.href} prefetch={false} className={LINK}>
                 {link.label}
               </Link>
             )}
@@ -57,25 +62,36 @@ function FooterColumn({ title, links }: { title: string; links: FooterLink[] }) 
  */
 export default function SiteFooter() {
   const pathname = usePathname();
-  const { t } = useTranslation();
+  const { t, cityName } = useTranslation();
 
+  // CC BY-SA 4.0 asks for a link to the licence, not just its name.
+  const [licenceBefore, licenceAfter = ""] = t("footer.licence", { licence: MARK }).split(MARK);
   const finePrint = (
     <>
       <p>{t("footer.notAdvice")}</p>
       <p>{t("footer.emergency")}</p>
-      <p>{t("footer.licence")}</p>
+      <p>
+        {licenceBefore}
+        <ExtLink href={MEDICINE_DATA_LICENCE_URL}>CC BY-SA 4.0</ExtLink>
+        {licenceAfter}
+      </p>
     </>
   );
 
   if (focusRouteFor(pathname)) {
     return (
       <footer id="site-footer" className="mt-16 border-t border-hairline bg-canvas">
-        {/* Bottom padding below 768px keeps these lines clear of the StickyActionBar. */}
-        <div className="mx-auto max-w-page px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] text-callout text-label-2 md:px-6 md:pb-6">
+        {/* Room for a StickyActionBar comes from the body (app/globals.css),
+            only on screens that render one. */}
+        <div className="mx-auto max-w-page px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-callout text-label-2 md:px-6 md:pb-6">
           <div className="space-y-2 text-footnote">
             {finePrint}
             <p>
-              <Link href="/methodology" className={cx(INLINE_LINK_CLASS, "inline-flex min-h-11 items-center")}>
+              <Link
+                href="/methodology"
+                prefetch={false}
+                className={cx(INLINE_LINK_CLASS, "inline-flex min-h-11 items-center")}
+              >
                 {t("nav.methodology")}
               </Link>
             </p>
@@ -114,10 +130,7 @@ export default function SiteFooter() {
             title={t("footer.colHospitals")}
             links={[
               { href: "/hospitals", label: t("nav.findHospital") },
-              ...CITIES.map((city) => ({
-                href: `/hospitals/${city.toLowerCase()}`,
-                label: <DataText>{city}</DataText>,
-              })),
+              ...CITIES.map((city) => ({ href: `/hospitals/${city}`, label: cityName(city) })),
             ]}
           />
           <FooterColumn
@@ -125,7 +138,8 @@ export default function SiteFooter() {
             links={[
               { href: "/methodology", label: t("nav.methodology") },
               { href: "/share-bill", label: t("nav.shareBill") },
-              { href: "/methodology#corrections", label: t("nav.reportMistake") },
+              // Only once there is a working channel to report through (lib/nav.ts).
+              ...(CORRECTIONS_URL ? [{ href: "/methodology#corrections", label: t("nav.reportMistake") }] : []),
               { href: CREDIT_HREF, label: t("footer.credit"), external: true },
             ]}
           />

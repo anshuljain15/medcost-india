@@ -8,7 +8,8 @@ import { Icon } from "@/components/ui/Icon";
 import { IconButton } from "@/components/ui/IconButton";
 import { LanguageSwitch } from "@/components/ui/LanguageSwitch";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
-import { SECTIONS, ariaCurrent, focusRouteFor } from "@/lib/nav";
+import { SECTIONS, ariaCurrent, focusRouteFor, hasHeroSearch } from "@/lib/nav";
+import type { MedicinesMeta } from "@/lib/types";
 import { loadHospitalIndex, loadProcedureIndex } from "@/lib/staticData";
 import Logo from "./Logo";
 
@@ -22,20 +23,31 @@ function prefetchSearch() {
   void loadHospitalIndex();
 }
 
+// The active section is not shown by the fill pill alone (1.1:1 against the
+// canvas): it is also semibold and underlined in accent. Text decoration is
+// remapped, not removed, in forced-colors mode.
 const NAV_LINK =
-  "inline-flex min-h-11 items-center rounded-full px-4 text-callout font-medium text-label-2 transition-colors duration-150 hover:text-label data-active:bg-fill data-active:font-semibold data-active:text-label";
+  "inline-flex min-h-11 items-center rounded-full px-4 text-callout font-medium text-label-2 transition-colors duration-150 hover:text-label data-active:bg-fill data-active:font-semibold data-active:text-label data-active:underline data-active:decoration-accent data-active:decoration-2 data-active:underline-offset-[6px]";
 
 /**
  * Site header (§2.3–2.5, §7). Solid canvas background, no blur; a hairline
  * appears once the page scrolls (IntersectionObserver on a 1px sentinel at the
  * top of the body sets data-scrolled). Focus routes get the service name, the
  * language switch and a Close (X) back to the section hub, with no nav or
- * search.
+ * search. The header search is left out on pages that open with their own
+ * search field (lib/nav.ts HERO_SEARCH_ROUTES).
  *
- * `medicinesDate` (the Jan Aushadhi list date, from a server component) is
- * passed to the search sheet for its medicines footnote.
+ * `medicinesDate` (the Jan Aushadhi list date) and `medicinesBrands` (the
+ * brand MRP source and its licence), both from a server component, are passed
+ * to the search sheet for its medicines footnotes.
  */
-export default function SiteHeader({ medicinesDate }: { medicinesDate?: string | null }) {
+export default function SiteHeader({
+  medicinesDate,
+  medicinesBrands,
+}: {
+  medicinesDate?: string | null;
+  medicinesBrands?: MedicinesMeta["brands"] | null;
+}) {
   const pathname = usePathname();
   const { t } = useTranslation();
   const focus = focusRouteFor(pathname);
@@ -73,7 +85,10 @@ export default function SiteHeader({ medicinesDate }: { medicinesDate?: string |
             <>
               <Logo compact />
               <span aria-hidden="true" className="mx-2 h-6 w-px shrink-0 bg-hairline" />
-              <span className="min-w-0 truncate text-headline text-label">{t(focus.serviceKey)}</span>
+              <span className="min-w-0 truncate text-headline text-label">
+                <span className="md:hidden">{t(focus.phoneKey)}</span>
+                <span className="hidden md:inline">{t(focus.serviceKey)}</span>
+              </span>
               <div className="ml-auto flex shrink-0 items-center gap-1">
                 <LanguageSwitch />
                 <IconButton
@@ -103,7 +118,7 @@ export default function SiteHeader({ medicinesDate }: { medicinesDate?: string |
                 })}
               </nav>
               <div className="ml-auto flex items-center gap-1">
-                {pathname !== "/" && (
+                {!hasHeroSearch(pathname) && (
                   <span className="contents" onPointerEnter={prefetchSearch} onFocus={prefetchSearch}>
                     <IconButton icon="search" label={t("nav.search")} className="lg:hidden" onClick={openSheet} />
                     <button
@@ -124,7 +139,12 @@ export default function SiteHeader({ medicinesDate }: { medicinesDate?: string |
         </div>
       </header>
       {sheetLoaded && (
-        <SearchSheet open={sheetOpen} onClose={() => setSheetPath(null)} medicinesDate={medicinesDate} />
+        <SearchSheet
+          open={sheetOpen}
+          onClose={() => setSheetPath(null)}
+          medicinesDate={medicinesDate}
+          medicinesBrands={medicinesBrands}
+        />
       )}
     </>
   );

@@ -17,6 +17,7 @@ export { ActionLink } from "./ActionLink";
 export { InlineLink, ExtLink, INLINE_LINK_CLASS } from "./InlineLink";
 export { IconButton } from "./IconButton";
 export { NewTabNote } from "./NewTabNote";
+export { IntentLink, type PrefetchMode } from "./IntentLink";
 
 // Containers and lists
 export { Card } from "./Card";
@@ -47,7 +48,7 @@ export { TextField, MoneyField, PinField, type FieldBase } from "./TextField";
 export { Select } from "./Select";
 export { Combobox, type ComboOption } from "./Combobox";
 export { SegmentedControl } from "./SegmentedControl";
-export { ChoiceChip, ChipRow } from "./ChoiceChip";
+export { ChoiceChip, ChipButton, ChipRow } from "./ChoiceChip";
 export { ChoiceList } from "./ChoiceList";
 export { PhotoInput } from "./PhotoInput";
 export { ErrorSummary } from "./ErrorSummary";

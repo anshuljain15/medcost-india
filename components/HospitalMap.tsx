@@ -65,6 +65,37 @@ function reducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+type T = (key: string) => string;
+
+/** MapLibre's own accessible names (canvas, zoom buttons, credits toggle), in the page language. */
+function mapLocale(t: T) {
+  return {
+    "Map.Title": t("city.viewMap"),
+    "NavigationControl.ZoomIn": t("city.zoomIn"),
+    "NavigationControl.ZoomOut": t("city.zoomOut"),
+    "AttributionControl.ToggleAttribution": t("city.mapCredits"),
+  };
+}
+
+// MapLibre reads `locale` once, when the map is built, and has no setter. These
+// are the elements it labels from it, so a language switch relabels them in place.
+const LOCALE_TARGETS: [selector: string, key: keyof ReturnType<typeof mapLocale>, title: boolean][] = [
+  [".maplibregl-canvas", "Map.Title", false],
+  [".maplibregl-ctrl-zoom-in", "NavigationControl.ZoomIn", true],
+  [".maplibregl-ctrl-zoom-out", "NavigationControl.ZoomOut", true],
+  [".maplibregl-ctrl-attrib-button", "AttributionControl.ToggleAttribution", true],
+];
+
+function relabel(container: HTMLElement, t: T) {
+  const locale = mapLocale(t);
+  for (const [selector, key, title] of LOCALE_TARGETS) {
+    for (const el of container.querySelectorAll<HTMLElement>(selector)) {
+      el.setAttribute("aria-label", locale[key]);
+      if (title) el.title = locale[key];
+    }
+  }
+}
+
 export default function HospitalMap({ hospitals, citySlug }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -99,6 +130,7 @@ export default function HospitalMap({ hospitals, citySlug }: Props) {
         dragRotate: false,
         pitchWithRotate: false,
         touchPitch: false,
+        locale: mapLocale(tRef.current),
       });
     } catch {
       // No WebGL (or it is switched off): show the fallback; the list still
@@ -282,9 +314,18 @@ export default function HospitalMap({ hospitals, citySlug }: Props) {
     source?.setData(toGeoJSON(hospitals));
   }, [hospitals]);
 
+  // Declared after the effect that builds the map, so on mount it runs second
+  // (a no-op relabel); after that it follows language switches.
+  useEffect(() => {
+    if (containerRef.current) relabel(containerRef.current, t);
+  }, [t]);
+
   return (
     <div className="relative h-full w-full">
-      <div ref={containerRef} className="h-full w-full" />
+      {/* The tiles are light in both themes, so MapLibre's unstyled text (the
+          map credits) reads --map-text, which never switches, not the page's
+          text-label. Unset, it falls back to inheriting text-label. */}
+      <div ref={containerRef} className="h-full w-full" style={{ color: "var(--map-text)" }} />
       {failed && (
         <div className="absolute inset-0 flex items-center justify-center bg-surface p-4">
           <div role="status" className="max-w-[40ch]">

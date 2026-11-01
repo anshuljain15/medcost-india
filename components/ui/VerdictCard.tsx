@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 import { Icon, type IconName } from "./Icon";
+import { useAnnounce } from "./LiveRegion";
 import { cx } from "./href";
 
 type Verdict = "within" | "above" | "below" | "unknown";
@@ -17,25 +19,44 @@ const VERDICT: Record<Verdict, { strip: string; icon: IconName; iconClass: strin
 
 /**
  * The result of a check. The strip is an H2 with tabIndex -1: the page moves
- * focus to it (via `headingRef`) on submit, and the section is a polite live
- * region so later edits are announced. Plain <ul>s in `children` get the
- * bullet-list recipe.
+ * focus to it (via `headingRef`) on submit. Later edits that change the
+ * verdict (a new amount, Quote/Final bill) announce only the strip and the
+ * sentence, once typing pauses, through the shared polite live region. The
+ * section itself is not a live region, so the lists, the range bar and the
+ * source note are never read out again on every keystroke. Plain <ul>s in
+ * `children` get the bullet-list recipe.
  */
 export function VerdictCard({
   status,
   sentence,
+  spokenSentence,
   headingRef,
   children,
 }: {
   status: Verdict;
-  sentence: string;
+  /** The sentence; a node when part of it is data text (a procedure name in a Hindi sentence). */
+  sentence: React.ReactNode;
+  /** The sentence as plain text for the announcement; required when `sentence` is not a string. */
+  spokenSentence?: string;
   headingRef?: React.Ref<HTMLHeadingElement>;
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation();
+  const announce = useAnnounce();
   const v = VERDICT[status];
+  const spoken = spokenSentence ?? (typeof sentence === "string" ? sentence : "");
+  const message = `${t(`quote.status.${status}`)}. ${spoken}`.trim();
+  // The verdict on mount is reached by focus, not announced. Only a change
+  // after that is, 600ms after the last edit (as the search counts are).
+  const lastMessage = useRef(message);
+  useEffect(() => {
+    if (message === lastMessage.current) return;
+    lastMessage.current = message;
+    const timer = window.setTimeout(() => announce(message), 600);
+    return () => window.clearTimeout(timer);
+  }, [message, announce]);
   return (
-    <section aria-live="polite" className="overflow-hidden rounded-card bg-surface">
+    <section className="overflow-hidden rounded-card bg-surface">
       <h2
         ref={headingRef}
         tabIndex={-1}

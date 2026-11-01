@@ -38,6 +38,8 @@ export default async function ProcedureDetailPage({ params }: Params) {
 
   const dates = getSourceDates();
 
+  // lib/data.ts has already dropped rows whose typical price falls outside
+  // their own range (isConsistentHospitalPrice); only the order is set here.
   return (
     <ProcedureDetailView
       procedure={{ ...procedure, hospitalPrices: [...procedure.hospitalPrices].sort(byTypical) }}

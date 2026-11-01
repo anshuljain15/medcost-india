@@ -3,6 +3,7 @@
 import UniversalSearch from "@/components/search/UniversalSearch";
 import { Sheet } from "@/components/ui/Sheet";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
+import type { MedicinesMeta } from "@/lib/types";
 
 /**
  * Header search (§2.7): a native <dialog> (Sheet `full`), full screen below
@@ -14,15 +15,25 @@ export default function SearchSheet({
   open,
   onClose,
   medicinesDate,
+  medicinesBrands,
 }: {
   open: boolean;
   onClose: () => void;
   medicinesDate?: string | null;
+  medicinesBrands?: MedicinesMeta["brands"] | null;
 }) {
   const { t } = useTranslation();
   return (
     <Sheet open={open} onClose={onClose} label={t("nav.search")} full>
-      {open && <UniversalSearch variant="sheet" autoFocus onNavigate={onClose} medicinesDate={medicinesDate} />}
+      {open && (
+        <UniversalSearch
+          variant="sheet"
+          autoFocus
+          onNavigate={onClose}
+          medicinesDate={medicinesDate}
+          medicinesBrands={medicinesBrands}
+        />
+      )}
     </Sheet>
   );
 }

@@ -82,6 +82,27 @@ export type BillStats = {
 export const UNLOCK_BILLS = 5;
 export const UNLOCK_BROWSERS = 3;
 
+/** Mirrors the stay_days / icu_days check constraints (0 to 365) on bill_reports. */
+export const MAX_STAY_DAYS = 365;
+
+/** The share.submitError.* message shown for a failed submitBill(). */
+export type SubmitErrorKind = "rate_limited" | "busy" | "invalid" | "generic";
+
+/**
+ * rate_limited and busy are raised by submit_bill(). Its invalid_* /
+ * components_exceed_total exceptions and a table check-constraint violation
+ * mean the database refused one of the answers (e.g. invalid_month while the
+ * database's date is still last month), so the person is told to check their
+ * answers rather than their connection. Anything else (network, http_5xx) is
+ * generic.
+ */
+export function submitErrorKind(err: unknown): SubmitErrorKind {
+  const msg = err instanceof Error ? err.message : "";
+  if (msg === "rate_limited" || msg === "busy") return msg;
+  if (/^invalid_|^components_exceed_total$|violates check constraint/.test(msg)) return "invalid";
+  return "generic";
+}
+
 async function rpc<T>(fn: string, body: unknown): Promise<T> {
   const res = await fetch(`${URL_}/rest/v1/rpc/${fn}`, {
     method: "POST",

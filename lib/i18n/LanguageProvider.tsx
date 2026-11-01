@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { formatISODate } from "@/lib/format";
 import { translations, type Locale } from "./translations";
 
 type Dict = (typeof translations)["en"];
@@ -10,6 +11,18 @@ type LanguageContextValue = {
   setLocale: (l: Locale) => void;
   dict: Dict;
   t: (path: string, vars?: Record<string, string | number>) => string;
+  /**
+   * formatISODate in the UI language: "30 Oct 2026" / "30 अक्टूबर 2026",
+   * "Nov 2022" / "नवंबर 2022". Hindi has no standard short month forms, so
+   * it uses the full names (the same list as share.months).
+   */
+  formatDate: (iso: string | null | undefined) => string;
+  /**
+   * A directory city ("Bangalore" or its slug "bangalore") in the UI language
+   * (cities.* in translations.ts: "बैंगलोर" under hi), so a Hindi sentence
+   * never switches script for a city name. Anything else comes back unchanged.
+   */
+  cityName: (cityOrSlug: string) => string;
 };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -78,6 +91,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<LanguageContextValue>(() => {
     const dict = translations[locale];
+    // English keeps formatISODate's short names; Hindi uses the full names.
+    const months: readonly string[] | undefined = locale === "hi" ? dict.share.months : undefined;
     return {
       locale,
       setLocale,
@@ -85,6 +100,11 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       t: (path, vars) => {
         const raw = resolve(dict, path);
         return typeof raw === "string" ? interpolate(raw, vars) : path;
+      },
+      formatDate: (iso) => formatISODate(iso, months),
+      cityName: (cityOrSlug) => {
+        const name = (dict.cities as Record<string, string>)[cityOrSlug.toLowerCase()];
+        return name ?? cityOrSlug;
       },
     };
   }, [locale, setLocale]);

@@ -11,10 +11,10 @@ import { useAnnounce } from "@/components/ui/LiveRegion";
 import { Money, MoneyRange } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cx } from "@/components/ui/href";
-import { formatISODate } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 import { MIN_QUERY_LENGTH, normalize as medicineKey, searchMedicines, type MedicineHit } from "@/lib/medicineShards";
 import { loadHospitalIndex, loadProcedureIndex } from "@/lib/staticData";
+import type { MedicinesMeta } from "@/lib/types";
 import { PIN_RE, prepareQuery } from "./match";
 import {
   ROWS_PER_GROUP,
@@ -63,6 +63,13 @@ export type UniversalSearchProps = {
    * not recorded"; a date is never guessed.
    */
   medicinesDate?: string | null;
+  /**
+   * The brand MRP source (MedicinesMeta.brands: the Kaggle A-Z dataset, Nov
+   * 2022, CC BY-SA 4.0), passed down by a server component. Brand rows are
+   * credited to it, never to PMBJP; without it a brand row gets no footnote
+   * rather than a wrong one.
+   */
+  medicinesBrands?: MedicinesMeta["brands"] | null;
   /** Focus the field once mounted (the sheet). */
   autoFocus?: boolean;
   /** Called after a result is chosen (the sheet closes itself). */
@@ -86,10 +93,11 @@ export function UniversalSearch({
   label,
   placeholder,
   medicinesDate,
+  medicinesBrands,
   autoFocus,
   onNavigate,
 }: UniversalSearchProps) {
-  const { t, dict } = useTranslation();
+  const { t, dict, formatDate } = useTranslation();
   const announce = useAnnounce();
   const router = useRouter();
   const baseId = `us${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -98,7 +106,7 @@ export function UniversalSearch({
   const listboxId = `${baseId}-listbox`;
   const optionId = (i: number) => `${baseId}-opt-${i}`;
   const groupId = (g: GroupKey) => `${baseId}-grp-${g}`;
-  const noteId = (g: GroupKey) => `${baseId}-note-${g}`;
+  const noteId = (note: string) => `${baseId}-note-${note}`;
 
   const sheet = variant === "sheet";
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -337,15 +345,40 @@ export function UniversalSearch({
   }
 
   // Group footers: the source and date of the prices shown in that group.
-  function groupNote(g: GroupKey): string | null {
-    if (g === "treatments") {
+  // Medicines get one note per source actually shown: Jan Aushadhi (PMBJP)
+  // for generic rows, the brand dataset (with its licence) for brand rows.
+  function groupNotes(g: SearchGroup): { id: string; text: string }[] {
+    if (g.key === "treatments") {
       const date = procedures?.date;
-      return t("search.treatmentsSource", { date: date ? formatISODate(date) : t("source.noDate") });
+      return [
+        {
+          id: noteId("treatments"),
+          text: t("search.treatmentsSource", { date: date ? formatDate(date) : t("source.noDate") }),
+        },
+      ];
     }
-    if (g === "medicines") {
-      return t("search.medicinesSource", { date: medicinesDate ? formatISODate(medicinesDate) : t("source.noDate") });
+    if (g.key === "medicines") {
+      const kinds = new Set(g.items.flatMap((item) => (item.kind === "medicine" ? [item.medKind] : [])));
+      const notes: { id: string; text: string }[] = [];
+      if (kinds.has("g")) {
+        notes.push({
+          id: noteId("medicines-ja"),
+          text: t("search.medicinesSource", { date: medicinesDate ? formatDate(medicinesDate) : t("source.noDate") }),
+        });
+      }
+      if (kinds.has("b") && medicinesBrands) {
+        notes.push({
+          id: noteId("medicines-brands"),
+          text: t("medicines.brandsCredit", {
+            name: medicinesBrands.name,
+            date: formatDate(medicinesBrands.snapshotDate),
+            license: medicinesBrands.license,
+          }),
+        });
+      }
+      return notes;
     }
-    return null;
+    return [];
   }
 
   function renderOption(item: SearchItem) {
@@ -366,9 +399,14 @@ export function UniversalSearch({
         icon = ITEM_ICON.medicine;
         title = <DataText>{item.name}</DataText>;
         // A brand hit carries the brand's own 2022 price, never a Jan Aushadhi one.
-        if (item.medKind === "b") subtitle = item.perUnit !== null ? withPrice("medicines.perUnitBrand", item.perUnit) : null;
-        else subtitle = item.perUnit !== null ? withPrice("medicines.perUnitJa", item.perUnit) : t("medicines.noJaPrice");
-        describedBy = noteId("medicines");
+        // Each row points at its own source's note only.
+        if (item.medKind === "b") {
+          subtitle = item.perUnit !== null ? withPrice("medicines.perUnitBrand", item.perUnit) : null;
+          describedBy = medicinesBrands ? noteId("medicines-brands") : undefined;
+        } else {
+          subtitle = item.perUnit !== null ? withPrice("medicines.perUnitJa", item.perUnit) : t("medicines.noJaPrice");
+          describedBy = noteId("medicines-ja");
+        }
         break;
       case "seeAllMedicines":
         icon = ITEM_ICON.seeAllMedicines;
@@ -455,7 +493,7 @@ export function UniversalSearch({
       <ul id={listboxId} role="listbox" aria-labelledby={labelId}>
         {groups.map((g) => {
           const heading = groupHeading(g.key);
-          const note = groupNote(g.key);
+          const notes = groupNotes(g);
           if (!heading) return <Fragment key={g.key}>{g.items.map(renderOption)}</Fragment>;
           return (
             <li key={g.key} role="presentation">
@@ -468,11 +506,11 @@ export function UniversalSearch({
                   {heading}
                 </li>
                 {g.items.map(renderOption)}
-                {note && (
-                  <li role="presentation" id={noteId(g.key)} className="px-4 pt-2 pb-2 text-footnote text-label-2">
-                    {note}
+                {notes.map((note) => (
+                  <li key={note.id} role="presentation" id={note.id} className="px-4 pt-2 pb-2 text-footnote text-label-2">
+                    {note.text}
                   </li>
-                )}
+                ))}
               </ul>
             </li>
           );

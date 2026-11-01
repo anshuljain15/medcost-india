@@ -6,10 +6,12 @@ export type FieldBase = { id: string; label: React.ReactNode; hint?: React.React
 /**
  * Input recipe without horizontal padding: each field adds its own (px-4,
  * pl-9, pr-11…) so two padding utilities never compete. text-body on every
- * input keeps iOS and Android from zooming on focus.
+ * input keeps iOS and Android from zooming on focus. The browser's own
+ * search-clear button (~18px, browser colours) is hidden: TextField
+ * type="search" draws a 44px IconButton instead.
  */
 export const INPUT_CLASS =
-  "h-14 w-full rounded-control border border-control bg-surface text-body text-label placeholder:text-label-3 transition-colors duration-150 focus-visible:border-accent aria-[invalid=true]:border-2 aria-[invalid=true]:border-danger-fg";
+  "h-14 w-full rounded-control border border-control bg-surface text-body text-label placeholder:text-label-3 transition-colors duration-150 focus-visible:border-accent aria-[invalid=true]:border-2 aria-[invalid=true]:border-danger-fg [&::-webkit-search-cancel-button]:appearance-none";
 
 export const hintId = (id: string) => `${id}-hint`;
 export const errorId = (id: string) => `${id}-error`;

@@ -207,7 +207,8 @@ ceiling and Jan Aushadhi price. Logic lives in `lib/billCheck.ts`; the
 bill page gets only `getMedicineRefs()` (a ~1,400-row slice) as props.
 
 - Results are worded "above / within the reference", never "overcharged".
-  Flags use the `warn-*` tokens (amber), not red.
+  Flags use the `warn-*` role tokens (amber); "within/below" is neutral, never
+  teal or green.
 - NPPA ceilings exclude GST, so a line is flagged only above ceiling × 1.12
   (`MAX_GST`). Far above the ceiling (`STRIPS_SUSPECT`) means "check you
   entered tablets, not strips", not a flag.
@@ -216,9 +217,11 @@ bill page gets only `getMedicineRefs()` (a ~1,400-row slice) as props.
 
 ## Patient-reported bills (Supabase)
 
-`/share-bill` is a 5-step form (procedure, city, optional hospital, stay,
-quoted vs final amount, payment, optional charge breakdown and "surprising
-charges"). It writes to Supabase through `lib/billReports.ts`, the one
+`/share-bill` is five one-question screens plus "Check your answers"
+(procedure, city, optional hospital, stay, quoted vs final amount, payment,
+optional charge breakdown and "surprising charges"); the browser back button
+steps back through them. Hospitals and procedures come from the static search
+indexes on demand, never as page props. It writes to Supabase through `lib/billReports.ts`, the one
 data-access module that talks to a live backend. The schema, RLS and both
 RPCs are in `supabase/migrations/0001_bill_reports.sql`.
 
@@ -245,20 +248,43 @@ RPCs are in `supabase/migrations/0001_bill_reports.sql`.
 
 - **Next.js 16 App Router, React 19, Tailwind v4, TypeScript strict.** Path alias
   `@/*` -> repo root.
-- **Theming**: CSS custom properties in `app/globals.css`, surfaced to Tailwind via
-  `@theme inline`. Use the semantic scales — `brand-*`, `ink-*`, `bg-background`,
-  `bg-surface` — never raw hex or Tailwind's stock palette. The `ink-*` scale
-  *inverts* under `[data-theme="dark"]`; for a band that must stay dark in both
-  themes use `bg-contrast` / `text-contrast-fg`.
+- **Design system ("Calm Ledger")**: `docs/design-system.md` is the spec — IA,
+  tokens, type scale, component recipes, page layouts, do-not-break list. Read
+  §3.3 and §5 before adding UI.
+- **Theming**: CSS custom properties in `app/globals.css`, surfaced through
+  `@theme inline`, which starts with `--color-*: initial` — Tailwind's stock
+  palette and the old `brand-*` / `ink-*` / `bg-background` / `bg-contrast`
+  utilities **no longer compile**. Use the role tokens: `bg-canvas`, `bg-surface`,
+  `bg-fill`, `text-label` / `-2` / `-3`, `border-hairline`, `border-control`,
+  `bg-accent text-accent-fg` (pressable things and selected state only),
+  `warn-*` (only "above"), `danger-*` (only form errors), `success-*` (only
+  confirmations). No raw hex, `dark:`, `text-white`, gradients, blur,
+  `uppercase`/`tracking-*`/`text-xs`/`text-sm`/`font-bold` in components; use the
+  type tokens (`text-title1`, `text-body`, `text-footnote`, …). Unicode glyphs
+  (→ ✓ ×) are never UI — use `<Icon>`.
+- **Primitives**: `components/ui/*` (Button, TaskTile, InsetGroup/ListRow,
+  PriceFigure/MoneyRange/SourceNote, VerdictCard, form fields, Sheet, …). Build
+  pages from them rather than hand-rolled markup. Chrome (header, bottom tab
+  bar, footer, search sheet) is `components/chrome/*`; navigation sections and
+  the three focus routes (`/check-quote`, `/check-bill`, `/share-bill`) are
+  defined once in `lib/nav.ts`.
 - **No-flash theme**: `NO_FLASH_THEME_SCRIPT` in `lib/theme/ThemeProvider.tsx` is
   inlined by `app/layout.tsx` and sets `data-theme` before hydration. If you change
   the storage key or the resolution order, change both places.
 - **i18n**: `useTranslation()` from `lib/i18n/LanguageProvider`; keys are dotted
   paths into `lib/i18n/translations.ts` with `{var}` interpolation. All user-facing
-  chrome goes through `t()` and needs both `en` and `hi`. **Data text is never
+  chrome goes through `t()` and needs both `en` and `hi` — a type-level parity
+  check at the end of `translations.ts` fails the build if a key exists in only
+  one locale, and `node scripts/check-i18n.cjs` checks every `t()` call's key and
+  placeholders. `NO_FLASH_LOCALE_SCRIPT` sets `lang="hi"` before hydration;
+  Noto Sans Devanagari loads only under `html:lang(hi)`. **Data text is never
   translated** — hospital names, addresses, procedure names, CGHS line items stay
   in the source language, for the same reason the matchers are conservative.
-- **Money** always renders through `formatINR()` (en-IN grouping, em-dash for null).
+- **Money** always renders through `formatINR()` / `formatINRUnit()`, normally via
+  the `Money` / `MoneyRange` / `PriceFigure` primitives. CGHS amounts are strings:
+  parse them with `parseCghsAmount()`, never `Number()`. Every price block is
+  followed by a `SourceNote`; dates come only from `data/source-dates.json` /
+  the medicines meta — null renders "date not recorded", never a guess.
 - Server components hold the routing and data lookup; the interactive view is a
   sibling `components/*View.tsx` or `*Client.tsx` marked `"use client"`. Follow
   that split for new routes.
@@ -275,7 +301,9 @@ through `HospitalMapLoader.tsx` with `next/dynamic` + `ssr: false` — it touche
 - Map construction and `map.on("error")` both fall back to a visible message; the
   hospital list must keep working when the map doesn't (no WebGL, tiles blocked).
 
-Its container needs an explicit height (`h-[520px]` in `CityView`).
+Its container needs an explicit height (`h-[70dvh] min-h-[360px]` in `CityView`).
+Pin and cluster colours come from the `--map-*` CSS variables; popups are built
+with `document.createElement`, never `innerHTML`.
 
 ## Commands
 
@@ -300,8 +328,20 @@ python data-pipeline/medicine_parse.py        # parser self-checks — run after
 python data-pipeline/build_medicines.py       # -> medicines.json, kendras.json, public/data/**
 ```
 
-There is no test suite. `npm run lint` and a static-export build are the
-available checks — run both before calling a change done.
+There is no test suite. The available checks — run all of them before calling
+a change done:
+
+```bash
+npx tsc --noEmit
+npm run lint
+node scripts/check-i18n.cjs                     # every t() key in en + hi, placeholders filled
+NEXT_PUBLIC_DEPLOY_TARGET=static npm run build  # prebuild also writes public/data/search/*.json
+```
+
+`scripts/build-search-index.mjs` (run by `predev`/`prebuild`) projects the
+committed snapshot into `public/data/search/{procedures,hospitals,cghs}.json`
+(gitignored) for the universal search, `/rates` and the share-bill pickers.
+Change it together with `lib/data.ts` / `lib/staticData.ts`.
 
 After re-running a builder, **commit `data/generated/*.json`** or neither deploy
 target sees the change. Check the builder's printed match counts before
@@ -315,11 +355,12 @@ looser, not better.
   repo, not vendored) and `build_procedures.py` reads `data-pipeline/output/`
   (gitignored). Regenerating data requires both. The committed JSON is the
   source of truth for anyone else.
-- **`data/generated/` is statically imported, so it lands in the client bundle.**
-  `hospitals.json` is 1.5 MB and `cghs_rates.json` 1.0 MB, and the pages that read
-  them (`app/hospitals/page.tsx`, `app/rates/page.tsx`, `app/page.tsx`) are
-  `"use client"`. This is a known weight problem, not a pattern to copy — prefer a
-  server component that passes only the slice a client component needs.
+- **`data/generated/` is statically imported, so a client import ships it.**
+  `hospitals.json` is 1.5 MB and `cghs_rates.json` 1.0 MB. Every page is now a
+  server component that passes only the slice its client view needs, and
+  browser-side lookups go through `lib/staticData.ts` / `lib/medicineShards.ts`.
+  Never import `lib/data.ts`, `lib/cghs.ts`, `lib/medicines.ts`, `lib/reviews.ts`
+  or `data/generated/*` from a `"use client"` file.
 - **Coordinates are dirty.** `clean_coord_pair` in `build_static_data.py` rejects
   out-of-India values, swaps transposed lat/lon, and rescales by powers of ten.
   It repairs most of them: 2,659 / 2,684 rows (99.1%) end up mappable, so a
@@ -336,9 +377,11 @@ looser, not better.
   `data/generated/medicines.json`, or search and the group pages will disagree.
 - `.env` holds a GitHub token and is gitignored. Never read it into app code,
   echo it, or commit it.
-- The two `eslint-disable react-hooks/set-state-in-effect` lines in the providers
+- The `eslint-disable react-hooks/set-state-in-effect` lines in the providers
   are deliberate — they hydrate `localStorage` state after mount to avoid a
   hydration mismatch.
+- **No browser automation on the dev machine.** Group policy blocks headless and
+  remote-debugged Edge, so visual checks are manual; don't try to work around it.
 
 ## Adding things
 
@@ -350,7 +393,8 @@ looser, not better.
   `app/hospitals/[city]/[slug]/page.tsx` gates the procedure section on
   `city === "bangalore"`. Both must change together.
 - **A new page** — server component for params and data, client view component for
-  interaction, every string through `t()` in both locales, and verify it under
-  `NEXT_PUBLIC_DEPLOY_TARGET=static npm run build`.
+  interaction built from `components/ui/*`, a place in the IA (`lib/nav.ts`
+  section, footer link, `lib/search/routes.ts` entry), every string through `t()`
+  in both locales, and verify it under `NEXT_PUBLIC_DEPLOY_TARGET=static npm run build`.
 
 See `README.md` for a short overview and `DEPLOY.md` for the deploy runbook.

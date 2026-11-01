@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon, type IconName } from "./Icon";
+import { IntentLink, type PrefetchMode } from "./IntentLink";
 import { NewTabNote } from "./NewTabNote";
 import { cx, isRoutable } from "./href";
 
@@ -12,6 +13,10 @@ import { cx, isRoutable } from "./href";
  * layout="stack": below 768px the trailing value moves under the text
  * (text-callout, left-aligned); from 768px it sits in the trailing slot. It is
  * one element placed by a two-column grid, so it is never rendered twice.
+ *
+ * `prefetch` (internal links): Next's default warms the route when the row
+ * scrolls into view. Long lists of heavy routes pass "intent" (warm on
+ * pointer over, touch or focus) or false.
  */
 export function ListRow({
   href,
@@ -23,6 +28,7 @@ export function ListRow({
   badges,
   trailing,
   layout = "inline",
+  prefetch = true,
 }: {
   href?: string;
   external?: boolean;
@@ -33,6 +39,7 @@ export function ListRow({
   badges?: React.ReactNode;
   trailing?: React.ReactNode;
   layout?: "inline" | "stack";
+  prefetch?: PrefetchMode;
 }) {
   const linked = Boolean(href);
   const hasTrailing = trailing !== undefined && trailing !== null && trailing !== false;
@@ -82,11 +89,16 @@ export function ListRow({
       </a>
     );
   } else if (href && isRoutable(href)) {
-    inner = (
-      <Link href={href} className={innerClass}>
-        {content}
-      </Link>
-    );
+    inner =
+      prefetch === "intent" ? (
+        <IntentLink href={href} className={innerClass}>
+          {content}
+        </IntentLink>
+      ) : (
+        <Link href={href} prefetch={prefetch ? undefined : false} className={innerClass}>
+          {content}
+        </Link>
+      );
   } else if (href) {
     inner = (
       <a href={href} className={innerClass}>

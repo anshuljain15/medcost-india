@@ -14,6 +14,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SourceNote } from "@/components/ui/SourceNote";
 import { TextField } from "@/components/ui/TextField";
+import { useAnnounce } from "@/components/ui/LiveRegion";
 import { cx } from "@/components/ui/href";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 import HospitalMapLoader from "@/components/HospitalMapLoader";
@@ -64,7 +65,8 @@ export default function CityView({
   hospitals: CityHospital[];
   directoryDate: string | null;
 }) {
-  const { t } = useTranslation();
+  const { t, cityName } = useTranslation();
+  const announce = useAnnounce();
   const [query, setQuery] = useState("");
   const [pricedOnly, setPricedOnly] = useState(false);
   const [view, setView] = useState<View>("list");
@@ -73,6 +75,8 @@ export default function CityView({
   const isWide = useSyncExternalStore(subscribeWide, wideNow, wideOnServer);
   const listRef = useRef<HTMLDivElement>(null);
   const focusRowRef = useRef<number | null>(null);
+  // Set by the filter controls: nothing is announced until someone filters.
+  const filteredByUserRef = useRef(false);
 
   const hasPrices = useMemo(() => hospitals.some((h) => h.priced), [hospitals]);
   const hays = useMemo(
@@ -90,6 +94,20 @@ export default function CityView({
   const visible = filtered.slice(0, limit);
   const remaining = filtered.length - visible.length;
   const unmapped = useMemo(() => filtered.filter((h) => h.lat == null || h.lon == null).length, [filtered]);
+  const shownLabel = filtered.length.toLocaleString("en-IN");
+  const totalLabel = hospitals.length.toLocaleString("en-IN");
+
+  // The count is announced once typing pauses (600ms, as on every other
+  // filter), not on each keystroke; the footnote under the field is not live.
+  useEffect(() => {
+    if (!filteredByUserRef.current) return;
+    const timer = window.setTimeout(() => {
+      announce(
+        filtered.length === 0 ? t("city.noMatch") : t("city.showing", { shown: shownLabel, total: totalLabel })
+      );
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [query, pricedOnly, filtered.length, shownLabel, totalLabel, announce, t]);
 
   // From 1024px the map shares the screen with the list; it waits for an idle
   // moment so the list is usable first on a slow phone or laptop.
@@ -118,11 +136,20 @@ export default function CityView({
     setLimit((n) => n + PAGE);
   }
 
+  // The no-match state's next step: back to the whole city, focus in the field.
+  function clearFilters() {
+    filteredByUserRef.current = true;
+    setQuery("");
+    setPricedOnly(false);
+    setLimit(PAGE);
+    document.getElementById("city-filter")?.focus();
+  }
+
   return (
     <PageShell width="page">
       <PageHeader
         back={{ href: "/hospitals", label: t("nav.findHospital") }}
-        title={t("city.title", { city: cityLabel })}
+        title={t("city.title", { city: cityName(cityLabel) })}
         lead={t("city.subtitle", { n: hospitals.length.toLocaleString("en-IN") })}
       />
 
@@ -136,7 +163,11 @@ export default function CityView({
               value={query}
               autoComplete="off"
               enterKeyHint="search"
+              // Below 768px the field moves under the header on focus, so the
+              // list fills the space above the keyboard; Search closes it.
+              phoneSearch
               onChange={(e) => {
+                filteredByUserRef.current = true;
                 setQuery(e.target.value);
                 setLimit(PAGE);
               }}
@@ -147,6 +178,7 @@ export default function CityView({
                   type="toggle"
                   checked={pricedOnly}
                   onChange={(on) => {
+                    filteredByUserRef.current = true;
                     setPricedOnly(on);
                     setLimit(PAGE);
                   }}
@@ -169,18 +201,15 @@ export default function CityView({
               />
             </div>
             <div className="space-y-1">
-              <p aria-live="polite" className="text-footnote text-label-2">
-                {t("city.showing", {
-                  shown: filtered.length.toLocaleString("en-IN"),
-                  total: hospitals.length.toLocaleString("en-IN"),
-                })}
+              <p className="text-footnote text-label-2">
+                {t("city.showing", { shown: shownLabel, total: totalLabel })}
                 {" · "}
                 {t("city.sortNote")}
               </p>
               {/* Honest about the ~1% of rows whose coordinates couldn't be repaired. */}
               {unmapped > 0 && (
                 <p className={cx("text-footnote text-label-2", view !== "map" && "hidden lg:block")}>
-                  {t("city.notOnMap", { n: unmapped })}
+                  {t(unmapped === 1 ? "city.notOnMapOne" : "city.notOnMap", { n: unmapped })}
                 </p>
               )}
             </div>
@@ -189,7 +218,11 @@ export default function CityView({
           {/* One page-level list: no nested scroll. Hidden (not unmounted) while the phone map is up. */}
           <div ref={listRef} className={cx("mt-4", view === "map" && "hidden lg:block")}>
             {filtered.length === 0 ? (
-              <EmptyState icon="search" title={t("city.noMatch")} />
+              <EmptyState
+                icon="search"
+                title={t("city.noMatch")}
+                action={{ onClick: clearFilters, label: t("city.clearFilters") }}
+              />
             ) : (
               <>
                 <InsetGroup>
@@ -197,6 +230,9 @@ export default function CityView({
                     <ListRow
                       key={h.slug}
                       href={`/hospitals/${citySlug}/${h.slug}`}
+                      // Prefetch on intent only: viewport prefetch would warm up to
+                      // 50 hospital pages per screenful while scrolling the list.
+                      prefetch="intent"
                       title={<DataText>{h.name}</DataText>}
                       subtitle={
                         h.address ? (
@@ -206,7 +242,8 @@ export default function CityView({
                         ) : undefined
                       }
                       meta={rowMeta(h, t) || undefined}
-                      badges={h.priced ? <Badge tone="accent">{t("city.pricesBadge")}</Badge> : undefined}
+                      // Neutral: teal is for pressable things only, and a badge isn't one.
+                      badges={h.priced ? <Badge icon="clipboard">{t("city.pricesBadge")}</Badge> : undefined}
                     />
                   ))}
                 </InsetGroup>
@@ -222,9 +259,11 @@ export default function CityView({
           </div>
         </div>
 
-        {/* Explicit height in both layouts: MapLibre needs a sized container. */}
+        {/* Explicit height in both layouts: MapLibre needs a sized container.
+            The map canvas is a keyboard stop (arrow keys pan), but its own ring
+            is clipped by overflow-hidden, so this wrapper draws it (TaskTile recipe). */}
         <div className={cx("mt-4 lg:sticky lg:top-[72px] lg:col-span-7 lg:mt-0", view !== "map" && "hidden lg:block")}>
-          <div className="h-[70dvh] min-h-[360px] overflow-hidden rounded-card bg-fill lg:h-[calc(100dvh-96px)]">
+          <div className="h-[70dvh] min-h-[360px] overflow-hidden rounded-card bg-fill has-[.maplibregl-canvas:focus-visible]:outline-3 has-[.maplibregl-canvas:focus-visible]:outline-offset-2 has-[.maplibregl-canvas:focus-visible]:outline-focus lg:h-[calc(100dvh-96px)]">
             {mountMap && <HospitalMapLoader hospitals={filtered} citySlug={citySlug} />}
           </div>
         </div>

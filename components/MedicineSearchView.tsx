@@ -3,18 +3,26 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { MedicinesMeta } from "@/lib/types";
-import { MIN_QUERY_LENGTH, normalize, searchMedicines, type MedicineHit } from "@/lib/medicineShards";
-import { formatINRUnit, formatISODate } from "@/lib/format";
+import {
+  MEDICINE_DATA_LICENCE_URL,
+  MIN_QUERY_LENGTH,
+  hasIndicScript,
+  normalize,
+  searchMedicines,
+  type MedicineHit,
+} from "@/lib/medicineShards";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 import {
   Badge,
   Callout,
+  ChipButton,
   ChipRow,
-  ChoiceChip,
   DataText,
+  EmptyState,
   ExtLink,
   InsetGroup,
   ListRow,
+  Money,
   PageHeader,
   PageNotes,
   PageShell,
@@ -34,6 +42,23 @@ import PrescriptionScan from "@/components/PrescriptionScan";
 /** Example queries, each verified to hit the shards (q-pan.json, q-dol.json). Data text, not translated. */
 const TRY_CHIPS = ["Pan 40", "Dolo 650", "pantoprazole"];
 
+const FIELD_ID = "medicine-search";
+
+/** Stand-in for one placeholder, so a translated sentence can carry a node (a link, <Money>). */
+const MARK = "\u0000";
+
+function withNode(text: string, node: React.ReactNode): React.ReactNode {
+  const at = text.indexOf(MARK);
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      {node}
+      {text.slice(at + MARK.length)}
+    </>
+  );
+}
+
 export default function MedicineSearchView({
   groupCount,
   jaDate,
@@ -43,14 +68,21 @@ export default function MedicineSearchView({
   jaDate: string | null;
   brands: MedicinesMeta["brands"];
 }) {
-  const { t } = useTranslation();
+  const { t, formatDate } = useTranslation();
   const announce = useAnnounce();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ for: string; hits: MedicineHit[] }>({ for: "", hits: [] });
 
   const q = normalize(query);
-  const active = q.replace(/ /g, "").length >= MIN_QUERY_LENGTH;
   const hasQuery = query.trim() !== "";
+  // The shards are Latin: never search what was typed in an Indic script
+  // ("डोलो 650" would otherwise search "650" and report a false "no results").
+  const nonLatin = hasIndicScript(query);
+  const active = !nonLatin && q.replace(/ /g, "").length >= MIN_QUERY_LENGTH;
+  // Typed enough that a search should have started, but nothing searchable:
+  // say so instead of leaving the page blank. Gated on length so "P", "Pa"
+  // don't flash the message while someone is still typing in English.
+  const needLatin = hasQuery && !active && (nonLatin || query.trim().length >= MIN_QUERY_LENGTH);
 
   useEffect(() => {
     if (!active) return;
@@ -70,13 +102,29 @@ export default function MedicineSearchView({
   const ready = active && !loading;
   const count = ready ? results.hits.length : null;
 
-  // Announce the result count once typing pauses (polite live region).
+  // Announce the result count (or why nothing is searched) once typing pauses
+  // (polite live region). The "English letters" hint is said once, not on
+  // every pause while the person keeps typing.
+  const message = needLatin
+    ? t("search.medicinesMin")
+    : count === null
+      ? null
+      : count > 0
+        ? t(count === 1 ? "search.countOne" : "search.count", { n: count })
+        : t("medicines.noResults", { q: query.trim() });
+  const announceKey = needLatin ? "latin" : query;
   useEffect(() => {
-    if (count === null) return;
-    const message = count > 0 ? t("search.count", { n: count }) : t("medicines.noResults", { q: query.trim() });
+    if (message === null) return;
     const timer = setTimeout(() => announce(message), 600);
     return () => clearTimeout(timer);
-  }, [count, query, announce, t]);
+  }, [message, announceKey, announce]);
+
+  function applyChip(chip: string) {
+    setQuery(chip);
+    // The pressed chip unmounts once the query is active; keep focus on the
+    // field (as UniversalSearch does) rather than letting it fall to <body>.
+    document.getElementById(FIELD_ID)?.focus();
+  }
 
   return (
     <PageShell>
@@ -87,37 +135,44 @@ export default function MedicineSearchView({
 
       <div className="space-y-4">
         <TextField
-          id="medicine-search"
+          id={FIELD_ID}
           type="search"
           label={t("medicines.searchLabel")}
           hint={t("medicines.searchHint")}
           placeholder={t("medicines.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            // Close the phone keyboard so the results below are visible.
-            if (e.key === "Enter") e.currentTarget.blur();
-          }}
+          // Below 768px the field and its label move under the header on focus,
+          // so the results fill the space above the keyboard (§2.7); the
+          // keyboard's Search key closes the keyboard.
+          phoneSearch
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
           enterKeyHint="search"
         />
-        <PrescriptionScan onPick={setQuery} selected={query} />
-        {!hasQuery && (
+        <PrescriptionScan onPick={setQuery} selected={query} collapsed={hasQuery} />
+        {!active && (
           <ChipRow wrap label={t("search.try")}>
             <span aria-hidden="true" className="inline-flex min-h-11 items-center text-callout text-label-2">
               {t("search.try")}
             </span>
+            {/* One-shot chips (no pressed state): plain buttons, as in UniversalSearch. */}
             {TRY_CHIPS.map((chip) => (
-              <ChoiceChip key={chip} type="toggle" checked={false} onChange={() => setQuery(chip)}>
+              <ChipButton key={chip} onClick={() => applyChip(chip)}>
                 <DataText>{chip}</DataText>
-              </ChoiceChip>
+              </ChipButton>
             ))}
           </ChipRow>
         )}
       </div>
+
+      {needLatin && (
+        <div className="mt-6">
+          <Callout icon="search">{t("search.medicinesMin")}</Callout>
+        </div>
+      )}
 
       {active && (
         <div className="mt-6" aria-busy={loading}>
@@ -128,18 +183,26 @@ export default function MedicineSearchView({
               <Skeleton />
             </div>
           ) : results.hits.length === 0 ? (
-            <Callout icon="search">{t("medicines.noResults", { q: query.trim() })}</Callout>
+            // A next step, not a dead end: what the data covers, and why a medicine may be missing.
+            <EmptyState
+              icon="search"
+              title={t("medicines.noResults", { q: query.trim() })}
+              action={{ href: "/methodology#medicines", label: t("medicines.methodologyLink") }}
+            />
           ) : (
             <InsetGroup
               footer={
                 <div className="space-y-1">
-                  <p>{t("search.medicinesSource", { date: jaDate ? formatISODate(jaDate) : t("source.noDate") })}</p>
+                  <p>{t("search.medicinesSource", { date: jaDate ? formatDate(jaDate) : t("source.noDate") })}</p>
                   <p>
-                    {t("medicines.brandsCredit", {
-                      name: brands.name,
-                      date: formatISODate(brands.snapshotDate),
-                      license: brands.license,
-                    })}{" "}
+                    {withNode(
+                      t("medicines.brandsCredit", {
+                        name: brands.name,
+                        date: formatDate(brands.snapshotDate),
+                        license: MARK,
+                      }),
+                      <ExtLink href={MEDICINE_DATA_LICENCE_URL}>{brands.license}</ExtLink>
+                    )}{" "}
                     <ExtLink href={brands.url}>Kaggle</ExtLink>
                   </p>
                 </div>
@@ -152,11 +215,15 @@ export default function MedicineSearchView({
                   title={<DataText>{h.name}</DataText>}
                   badges={<Badge>{h.kind === "g" ? t("medicines.kindGroup") : t("medicines.kindBrand")}</Badge>}
                   meta={
-                    h.kind === "b"
-                      ? t("medicines.perUnitBrand", { price: formatINRUnit(h.perUnit) })
-                      : h.perUnit !== null
-                        ? t("medicines.perUnitJa", { price: formatINRUnit(h.perUnit) })
-                        : t("medicines.noJaPrice")
+                    h.perUnit !== null
+                      ? withNode(
+                          t(h.kind === "b" ? "medicines.perUnitBrand" : "medicines.perUnitJa", { price: MARK }),
+                          <Money value={h.perUnit} perUnit />
+                        )
+                      : // A brand without a listed price gets no price line at all, never "—".
+                        h.kind === "g"
+                        ? t("medicines.noJaPrice")
+                        : undefined
                   }
                 />
               ))}

@@ -1,24 +1,33 @@
+// One formatter each, created once: toLocaleString() would build a new
+// Intl.NumberFormat on every call, and /rates formats ~300 amounts a keystroke.
+const INR = new Intl.NumberFormat("en-IN");
+const INR_UNIT = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export function formatINR(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
-  return `₹${n.toLocaleString("en-IN")}`;
+  return `₹${INR.format(n)}`;
 }
 
 /** Per-tablet prices: always two decimals (₹1.25, ₹0.20), em-dash for null. */
 export function formatINRUnit(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
-  return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `₹${INR_UNIT.format(n)}`;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** English short month names, the default for formatISODate. */
+export const EN_MONTHS: readonly string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
  * "2026-10-30" -> "30 Oct 2026", "2022-11" -> "Nov 2022". Pure string work, no
- * Date/timezone, so server and client render the same text.
+ * Date/timezone, so server and client render the same text. `months` are the
+ * 12 month names of the UI language: components normally call `formatDate`
+ * from useTranslation(), which passes the Hindi names under the Hindi UI
+ * ("30 अक्टूबर 2026"). Day and year stay in Latin digits, like the money.
  */
-export function formatISODate(iso: string | null | undefined): string {
+export function formatISODate(iso: string | null | undefined, months: readonly string[] = EN_MONTHS): string {
   if (!iso) return "—";
   const [y, m, d] = iso.split("-");
-  const month = MONTHS[Number(m) - 1];
+  const month = months[Number(m) - 1];
   if (!month) return iso;
   return d ? `${Number(d)} ${month} ${y}` : `${month} ${y}`;
 }
@@ -96,6 +105,21 @@ export function parseCghsAmount(s: string | null): number | null {
   if (!/^\d+(\.\d+)?$/.test(digits)) return null;
   const n = Number(digits);
   return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * The GST qualifier a CGHS amount carries: "plus" for "38740+GST" (the listed
+ * figure is before GST, so the bill will be higher), "incl" for "Rs
+ * 23,625(Inclusive of GST)", null for a plain amount or anything unparsed.
+ * The three ward strings of one CGHS row carry the same qualifier, so callers
+ * read it once per row (general ward first) and show it once, next to the
+ * figures, never folded into them.
+ */
+export function cghsGst(s: string | null | undefined): "plus" | "incl" | null {
+  if (s === null || s === undefined || parseCghsAmount(s) === null) return null;
+  if (/\+\s*gst\s*$/i.test(s.trim())) return "plus";
+  if (/\(\s*inclusive of gst\s*\)\s*$/i.test(s.trim())) return "incl";
+  return null;
 }
 
 /** A 10-digit Indian national number from 12 digits "91…", 11 digits "0…" or 10 digits. */

@@ -1,6 +1,5 @@
 "use client";
 
-import { DataText } from "@/components/ui/DataText";
 import { Disclosure } from "@/components/ui/Disclosure";
 import { InsetGroup } from "@/components/ui/InsetGroup";
 import { ListRow } from "@/components/ui/ListRow";
@@ -14,7 +13,7 @@ import { useTranslation } from "@/lib/i18n/LanguageProvider";
 /** One city on the /hospitals hub, counted on the server. */
 export type CitySummary = {
   slug: string;
-  /** Display name from the directory ("Bangalore"): data text, never translated. */
+  /** Display name from the directory ("Bangalore"); shown through cityName() (cities.* in translations). */
   label: string;
   count: number;
   /** Bangalore only: hospitals there can carry treatment prices. */
@@ -36,7 +35,7 @@ export default function HospitalListClient({
   total: number;
   directoryDate: string | null;
 }) {
-  const { t } = useTranslation();
+  const { t, cityName } = useTranslation();
 
   return (
     <PageShell>
@@ -60,7 +59,10 @@ export default function HospitalListClient({
             <ListRow
               key={c.slug}
               href={`/hospitals/${c.slug}`}
-              title={<DataText>{c.label}</DataText>}
+              // A city page carries its whole hospital list (up to ~200 KB
+              // gzipped), so it is prefetched on intent, not when the row scrolls in.
+              prefetch="intent"
+              title={cityName(c.label)}
               subtitle={c.priced ? t("hospitals.pricesAvailable") : undefined}
               trailing={
                 <>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { HospitalReviews as Reviews } from "@/lib/types";
+import type { HospitalReview, HospitalReviews as Reviews } from "@/lib/types";
 import { formatISODate } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
 import { ActionLink } from "@/components/ui/ActionLink";
@@ -24,12 +24,32 @@ import { cx } from "@/components/ui/href";
 //
 // This component receives ONE hospital's record as a prop from the server
 // page; it must never import lib/reviews.ts.
+//
+// The UI also guards those elements, so a bad reviews.json can't publish
+// review text without them: a review with no link back or no author is not
+// shown, and with no link to the place at all the section is not shown.
 
-/** "2026-10-30T08:12:00Z" -> "30 Oct 2026". A non-ISO value is shown as given; null stays null. */
-function fetchedLabel(fetchedAt: string | null): string | null {
-  if (!fetchedAt) return null;
-  const iso = /^\d{4}-\d{2}(-\d{2})?/.exec(fetchedAt.trim());
-  return iso ? formatISODate(iso[0]) : fetchedAt.trim();
+type LinkedReview = HospitalReview & { reviewUrl: string };
+
+function isLinked(r: HospitalReview): r is LinkedReview {
+  return Boolean(r.reviewUrl) && r.author.trim() !== "";
+}
+
+/**
+ * "2026-10-30T08:12:00Z" -> "30 Oct 2026". Anything not ISO is null: the
+ * vendor's "10/04/2026" is month-first (read here as 10 April), and "2 months
+ * ago" goes stale in a static snapshot.
+ */
+function isoDateLabel(value: string | null): string | null {
+  const iso = value ? /^\d{4}-\d{2}-\d{2}/.exec(value.trim()) : null;
+  return iso ? formatISODate(iso[0]) : null;
+}
+
+/** The place on Google Maps: the stored link, or one built from the place id. */
+function placeLink(reviews: Reviews, hospitalName: string): string | null {
+  if (reviews.googleMapsUrl) return reviews.googleMapsUrl;
+  if (!reviews.placeId) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hospitalName)}&query_place_id=${encodeURIComponent(reviews.placeId)}`;
 }
 
 /** Decorative only: the rating is always also given in words. */
@@ -100,10 +120,50 @@ function ClampedText({ text }: { text: string }) {
   );
 }
 
-export default function HospitalReviews({ reviews }: { reviews: Reviews }) {
+/** One review: author (linked to the profile when known), rating, date, text and its link back. */
+function ReviewCard({ review: r }: { review: LinkedReview }) {
   const { t } = useTranslation();
-  const { rating, reviewCount, summary, topReviews, photos, googleMapsUrl, fetchedAt } = reviews;
-  const fetched = fetchedLabel(fetchedAt);
+  const published = isoDateLabel(r.publishedAt);
+  return (
+    <Card as="article" className="space-y-2">
+      <p className="text-headline text-label">
+        {r.profileUrl ? (
+          <ExtLink href={r.profileUrl}>
+            <DataText>{r.author}</DataText>
+          </ExtLink>
+        ) : (
+          <DataText>{r.author}</DataText>
+        )}
+      </p>
+      {(r.rating !== null || published) && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-callout text-label-2">
+          {r.rating !== null && (
+            <>
+              <Stars rating={r.rating} />
+              <span>{t("reviews.ratingOf", { rating: r.rating })}</span>
+            </>
+          )}
+          {r.rating !== null && published && <span aria-hidden="true">·</span>}
+          {published && <span className="tabular-nums">{published}</span>}
+        </p>
+      )}
+      {r.text && <ClampedText text={r.text} />}
+      <ActionLink href={r.reviewUrl} external>
+        {t("reviews.viewReview")}
+      </ActionLink>
+    </Card>
+  );
+}
+
+export default function HospitalReviews({ reviews, hospitalName }: { reviews: Reviews; hospitalName: string }) {
+  const { t } = useTranslation();
+  const placeHref = placeLink(reviews, hospitalName);
+  // Nothing here could be traced back to Google: show nothing rather than an unsourced rating.
+  if (!placeHref) return null;
+
+  const { rating, reviewCount, summary, photos } = reviews;
+  const linkedReviews = reviews.topReviews.filter(isLinked);
+  const fetched = isoDateLabel(reviews.fetchedAt);
 
   let ratingText: string | null = null;
   if (rating !== null && reviewCount !== null) {
@@ -118,23 +178,20 @@ export default function HospitalReviews({ reviews }: { reviews: Reviews }) {
     <section aria-labelledby="hospital-reviews" className="space-y-4">
       <SectionHeader id="hospital-reviews" title={t("reviews.heading")} />
 
-      {(ratingText || googleMapsUrl) && (
-        <div>
-          {ratingText && (
-            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-headline tabular-nums text-label">
-              <span>{ratingText}</span>
-              {rating !== null && <Stars rating={rating} />}
-            </p>
-          )}
-          {googleMapsUrl && (
-            <ActionLink href={googleMapsUrl} external>
-              {t("reviews.viewOnGoogle")}
-            </ActionLink>
-          )}
-        </div>
-      )}
+      <div>
+        {ratingText && (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-headline tabular-nums text-label">
+            <span>{ratingText}</span>
+            {rating !== null && <Stars rating={rating} />}
+          </p>
+        )}
+        <ActionLink href={placeHref} external>
+          {t("reviews.viewOnGoogle")}
+        </ActionLink>
+      </div>
 
-      {summary && (
+      {/* Its disclaimer points to "the reviews below", so it needs some to point to. */}
+      {summary && linkedReviews.length > 0 && (
         <Callout title={t("reviews.summaryLabel")}>
           <p className="text-body">{summary}</p>
           <p className="text-footnote">{t("reviews.summaryDisclaimer")}</p>
@@ -143,39 +200,11 @@ export default function HospitalReviews({ reviews }: { reviews: Reviews }) {
 
       <PhotoStrip photos={photos} />
 
-      {topReviews.length > 0 && (
+      {linkedReviews.length > 0 && (
         <ul className="space-y-3">
-          {topReviews.map((r, i) => (
-            <li key={r.reviewUrl ?? `${r.author}-${i}`}>
-              <Card as="article" className="space-y-2">
-                <p className="text-headline text-label">
-                  {r.profileUrl ? (
-                    <ExtLink href={r.profileUrl}>
-                      <DataText>{r.author}</DataText>
-                    </ExtLink>
-                  ) : (
-                    <DataText>{r.author}</DataText>
-                  )}
-                </p>
-                {(r.rating !== null || r.publishedAt) && (
-                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-callout text-label-2">
-                    {r.rating !== null && (
-                      <>
-                        <Stars rating={r.rating} />
-                        <span>{t("reviews.ratingOf", { rating: r.rating })}</span>
-                      </>
-                    )}
-                    {r.rating !== null && r.publishedAt && <span aria-hidden="true">·</span>}
-                    {r.publishedAt && <DataText>{r.publishedAt}</DataText>}
-                  </p>
-                )}
-                {r.text && <ClampedText text={r.text} />}
-                {r.reviewUrl && (
-                  <ActionLink href={r.reviewUrl} external>
-                    {t("reviews.viewReview")}
-                  </ActionLink>
-                )}
-              </Card>
+          {linkedReviews.map((r) => (
+            <li key={r.reviewUrl}>
+              <ReviewCard review={r} />
             </li>
           ))}
         </ul>

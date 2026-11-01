@@ -15,7 +15,7 @@ export type ButtonBase = {
 };
 
 const BASE =
-  "inline-flex items-center justify-center gap-2 rounded-full text-headline transition-colors duration-150 ease-fade disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 rounded-full text-headline transition-colors duration-150 ease-fade disabled:cursor-not-allowed aria-disabled:cursor-not-allowed";
 
 // Height + padding per size. `lg` replaces the md pair instead of stacking on it,
 // so two utilities never compete for the same property.
@@ -24,10 +24,17 @@ const SIZE: Record<Exclude<Variant, "plain">, Record<Size, string>> = {
   tonal: { md: "min-h-12 px-5", lg: "min-h-14 px-7" },
 };
 
+// aria-disabled gets the same look as disabled. A focus-mode form keeps its
+// submit button focusable with aria-disabled (so pressing it can name what is
+// missing) rather than removing it from the Tab order; the aria-disabled
+// hover utilities keep the fill from changing under the pointer.
 const TONE: Record<Variant, string> = {
-  primary: "bg-accent text-accent-fg hover:bg-accent-hover disabled:bg-fill disabled:text-label-3",
-  tonal: "bg-accent-soft text-accent-strong hover:bg-accent-soft-hover disabled:bg-fill disabled:text-label-3",
-  plain: "-mx-1 min-h-11 px-1 text-accent underline-offset-4 hover:underline disabled:text-label-3",
+  primary:
+    "bg-accent text-accent-fg hover:bg-accent-hover disabled:bg-fill disabled:text-label-3 aria-disabled:bg-fill aria-disabled:text-label-3 aria-disabled:hover:bg-fill",
+  tonal:
+    "bg-accent-soft text-accent-strong hover:bg-accent-soft-hover disabled:bg-fill disabled:text-label-3 aria-disabled:bg-fill aria-disabled:text-label-3 aria-disabled:hover:bg-fill",
+  plain:
+    "-mx-1 min-h-11 px-1 text-accent underline-offset-4 hover:underline disabled:text-label-3 aria-disabled:text-label-3 aria-disabled:hover:no-underline",
 };
 
 // The disabled look for elements that can't match :disabled (a <label>).

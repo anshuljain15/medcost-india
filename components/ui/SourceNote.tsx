@@ -1,7 +1,6 @@
 "use client";
 
 import { useTranslation } from "@/lib/i18n/LanguageProvider";
-import { formatISODate } from "@/lib/format";
 import { Icon } from "./Icon";
 import { ExtLink, InlineLink } from "./InlineLink";
 
@@ -23,6 +22,9 @@ export type MethodAnchor =
  * get prices". Sits directly under the price it supports. It never invents a
  * date: a null date always reads "date not recorded".
  *
+ * `dateKind="snapshot"` is for a dataset that is a dated snapshot rather than
+ * a list we downloaded on that date (the Kaggle brand MRPs, "Nov 2022
+ * snapshot"): "retrieved Nov 2022" would be false there.
  * `compact` (search footers) drops the icon and the methodology link.
  */
 export function SourceNote({
@@ -30,6 +32,7 @@ export function SourceNote({
   href,
   qualifier,
   date,
+  dateKind = "retrieved",
   anchor,
   compact,
 }: {
@@ -37,10 +40,11 @@ export function SourceNote({
   href?: string;
   qualifier?: string;
   date: string | null;
+  dateKind?: "retrieved" | "snapshot";
   anchor: MethodAnchor;
   compact?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, formatDate } = useTranslation();
   return (
     <p className="mt-3 flex gap-1.5 text-footnote text-label-2">
       {!compact && <Icon name="source" className="mt-0.5 size-4 shrink-0" />}
@@ -48,7 +52,9 @@ export function SourceNote({
         {t("source.label")} {href ? <ExtLink href={href}>{source}</ExtLink> : source}
         {qualifier && ` · ${qualifier}`}
         {" · "}
-        {date ? t("source.retrieved", { date: formatISODate(date) }) : t("source.noDate")}
+        {date
+          ? t(dateKind === "snapshot" ? "source.snapshot" : "source.retrieved", { date: formatDate(date) })
+          : t("source.noDate")}
         {!compact && (
           <>
             {" · "}

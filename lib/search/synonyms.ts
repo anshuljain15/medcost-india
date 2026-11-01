@@ -4,6 +4,10 @@
 // shown and are not translations (data text is never translated).
 //
 // Rules: 2-5 aliases per slug, lowercase, a plain word a patient would type.
+// Hindi oblique forms (घुटने, कूल्हे) and filler words ("का ऑपरेशन") are
+// handled by components/search/match.ts, so they need no alias of their own.
+// Gallstones are "पित्त की पथरी", never a bare "पथरी": kidney stones
+// (गुर्दे की पथरी) are a different treatment with no row here.
 // Never alias one procedure to another procedure's name (the matcher history
 // in CLAUDE.md: "Angioplasty" once matched "Vaginoplasty"). Matching
 // normalises with toLowerCase().normalize("NFC") on both sides.
@@ -23,16 +27,16 @@ export const SYNONYMS: Record<string, string[]> = {
   "total-hip-replacement": ["hip", "कूल्हा", "कूल्हा बदलना"],
 
   // eye
-  "cataract-surgery": ["मोतियाबिंद", "motiyabind", "phaco"],
-  "laser-cataract-surgery": ["मोतियाबिंद", "motiyabind", "femto cataract"],
+  "cataract-surgery": ["मोतियाबिंद", "कैटरेक्ट", "motiyabind", "phaco"],
+  "laser-cataract-surgery": ["मोतियाबिंद", "कैटरेक्ट", "motiyabind", "femto cataract"],
   "contoura-vision": ["चश्मा हटाना", "specs removal", "laser eye"],
   "icl-eye-surgery": ["चश्मा हटाना", "specs removal", "lens implant"],
   "lasik-surgery": ["चश्मा हटाना", "specs removal", "laser eye", "लेसिक"],
   "smile-eye-surgery": ["चश्मा हटाना", "specs removal", "laser eye"],
 
   // stomach and liver
-  "laparoscopic-cholecystectomy": ["gallbladder", "पित्त की थैली", "pathri", "gallstone"],
-  "open-cholecystectomy": ["gallbladder", "पित्त की थैली", "pathri", "gallstone"],
+  "laparoscopic-cholecystectomy": ["gallbladder", "पित्त की थैली", "पित्त की पथरी", "pathri", "gallstone"],
+  "open-cholecystectomy": ["gallbladder", "पित्त की थैली", "पित्त की पथरी", "pathri", "gallstone"],
   "ercp-test": ["ईआरसीपी", "bile duct", "पित्त की नली"],
   "mrcp-test": ["एमआरसीपी", "bile duct mri", "पित्त की नली"],
   "ascitic-tap": ["paracentesis", "पेट का पानी निकालना"],

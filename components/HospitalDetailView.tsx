@@ -9,7 +9,6 @@ import { Callout } from "@/components/ui/Callout";
 import { DataText } from "@/components/ui/DataText";
 import { Disclosure } from "@/components/ui/Disclosure";
 import { Icon } from "@/components/ui/Icon";
-import { IconButton } from "@/components/ui/IconButton";
 import { InsetGroup } from "@/components/ui/InsetGroup";
 import { ListRow } from "@/components/ui/ListRow";
 import { MoneyRange } from "@/components/ui/Money";
@@ -18,6 +17,7 @@ import { PageNotes } from "@/components/ui/PageNotes";
 import { PageShell } from "@/components/ui/PageShell";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { SourceNote } from "@/components/ui/SourceNote";
+import { KendraRow } from "@/components/KendraFinder";
 import HospitalReviewsSection from "@/components/HospitalReviews";
 
 /** This hospital's own HexaHealth price for one treatment, sliced on the server. */
@@ -26,7 +26,10 @@ export type HospitalPriceRow = {
   name: string;
   min: number | null;
   max: number | null;
+  /** HexaHealth's average; rows whose average falls outside their own min–max never get here (lib/data.ts). */
   avg: number | null;
+  /** The HexaHealth page this price was read from. */
+  sourceUrl: string;
 };
 
 type NearbyKendras = { samePin: JanAushadhiKendra[]; samePostalArea: JanAushadhiKendra[] };
@@ -61,13 +64,15 @@ export default function HospitalDetailView({
   kendras: NearbyKendras;
   dates: { hexahealth: string | null; directory: string | null };
 }) {
-  const { t } = useTranslation();
+  const { t, cityName } = useTranslation();
   const tel = telHref(hospital.phone);
+  const city = cityName(hospital.city);
 
   return (
     <PageShell>
       <PageHeader
-        back={{ href: `/hospitals/${citySlug}`, label: t("hospital.backTo", { city: hospital.city }) }}
+        // The city page carries its whole hospital list: prefetch it on intent only.
+        back={{ href: `/hospitals/${citySlug}`, label: t("hospital.backTo", { city }), prefetch: "intent" }}
         title={<DataText>{hospital.name}</DataText>}
         meta={hospital.address ? <DataText>{hospital.address}</DataText> : undefined}
       >
@@ -88,15 +93,15 @@ export default function HospitalDetailView({
         <AboutGroup hospital={hospital} t={t} />
         <TreatmentPrices
           citySlug={citySlug}
-          cityLabel={hospital.city}
+          cityLabel={city}
           prices={prices}
           hexahealthDate={dates.hexahealth}
           t={t}
         />
-        {reviews && <HospitalReviewsSection reviews={reviews} />}
+        {reviews && <HospitalReviewsSection reviews={reviews} hospitalName={hospital.name} />}
         <NearbyKendrasSection pincode={hospital.pincode} kendras={kendras} t={t} />
         <InsetGroup>
-          <ListRow href="/share-bill" leading="receipt" title={t("hospital.shareHere")} />
+          <ListRow href="/share-bill" leading="users" title={t("hospital.shareHere")} />
         </InsetGroup>
       </div>
 
@@ -198,6 +203,8 @@ function TreatmentPrices({
   }
 
   const quoteHref = prices.length === 1 ? `/check-quote#${prices[0].slug}` : "/check-quote";
+  // One treatment links its own HexaHealth page; several link the site, as /procedures does.
+  const sourceHref = prices.length === 1 ? prices[0].sourceUrl : new URL(prices[0].sourceUrl).origin;
   return (
     <section aria-labelledby="hospital-prices">
       <SectionHeader id="hospital-prices" title={t("hospital.proceduresHeading")} />
@@ -215,6 +222,7 @@ function TreatmentPrices({
       </InsetGroup>
       <SourceNote
         source="HexaHealth"
+        href={sourceHref}
         qualifier={t("source.marketQualifier")}
         date={hexahealthDate}
         anchor="market-prices"
@@ -239,14 +247,13 @@ function NearbyKendrasSection({ pincode, kendras, t }: { pincode: string | null;
       ) : (
         <div className="space-y-6">
           {kendras.samePin.length > 0 && (
-            <KendraGroup id="kendras-same-pin" heading={t("hospital.kendrasSamePin", { pin: pincode })} rows={kendras.samePin} t={t} />
+            <KendraGroup id="kendras-same-pin" heading={t("hospital.kendrasSamePin", { pin: pincode })} rows={kendras.samePin} />
           )}
           {kendras.samePostalArea.length > 0 && (
             <KendraGroup
               id="kendras-same-area"
               heading={t("hospital.kendrasSameArea", { area: pincode.slice(0, 3) })}
               rows={kendras.samePostalArea}
-              t={t}
             />
           )}
         </div>
@@ -262,8 +269,10 @@ function NearbyKendrasSection({ pincode, kendras, t }: { pincode: string | null;
 /**
  * InsetGroup's own heading is an h2; these sit under the section's h2, so the
  * recipe's heading is repeated here as an h3 above a heading-less InsetGroup.
+ * Rows are the /kendras KendraRow itself; the group heading already says
+ * "same PIN", so no row carries the badge.
  */
-function KendraGroup({ id, heading, rows, t }: { id: string; heading: string; rows: JanAushadhiKendra[]; t: T }) {
+function KendraGroup({ id, heading, rows }: { id: string; heading: string; rows: JanAushadhiKendra[] }) {
   return (
     <div>
       <h3 id={id} className="px-4 pb-2 text-footnote font-semibold text-label-2">
@@ -271,37 +280,9 @@ function KendraGroup({ id, heading, rows, t }: { id: string; heading: string; ro
       </h3>
       <InsetGroup>
         {rows.map((k) => (
-          <KendraRow key={k.code} kendra={k} t={t} />
+          <KendraRow key={k.code} kendra={k} samePin={false} />
         ))}
       </InsetGroup>
     </div>
-  );
-}
-
-/**
- * The /kendras row recipe (§6): address, district + state, PIN + store code,
- * and a directions button. No distance claims and no operator names.
- */
-function KendraRow({ kendra, t }: { kendra: JanAushadhiKendra; t: T }) {
-  const place = [kendra.district, kendra.state].filter(Boolean).join(", ");
-  const meta = [kendra.pincode && t("city.pin", { pin: kendra.pincode }), t("kendras.storeCode", { code: kendra.code })]
-    .filter(Boolean)
-    .join(" · ");
-  const query = [kendra.address, place, kendra.pincode].filter(Boolean).join(", ");
-  return (
-    <ListRow
-      title={kendra.address ? <DataText>{kendra.address}</DataText> : t("kendras.storeCode", { code: kendra.code })}
-      subtitle={place ? <DataText>{place}</DataText> : undefined}
-      meta={kendra.address ? meta : kendra.pincode ? t("city.pin", { pin: kendra.pincode }) : undefined}
-      trailing={
-        query ? (
-          <IconButton
-            icon="directions"
-            label={`${t("common.directions")}: ${kendra.address ?? kendra.code}`}
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`}
-          />
-        ) : undefined
-      }
-    />
   );
 }

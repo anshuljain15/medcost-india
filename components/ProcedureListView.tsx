@@ -87,6 +87,7 @@ export default function ProcedureListView({
   const { t } = useTranslation();
   const announce = useAnnounce();
   const [query, setQuery] = useState("");
+  const ratesLabel = t("procedures.ratesLink", { n: cghsLineItems.toLocaleString("en-IN") });
 
   const groups = useMemo(() => {
     const sorted = [...rows].sort(byName);
@@ -122,7 +123,11 @@ export default function ProcedureListView({
   useEffect(() => {
     if (!trimmed) return;
     const timer = window.setTimeout(() => {
-      announce(matchCount > 0 ? t("procedures.count", { n: matchCount }) : t("procedures.noMatch", { q: trimmed }));
+      announce(
+        matchCount > 0
+          ? t(matchCount === 1 ? "procedures.countOne" : "procedures.count", { n: matchCount })
+          : t("procedures.noMatch", { q: trimmed })
+      );
     }, 600);
     return () => window.clearTimeout(timer);
   }, [trimmed, matchCount, announce, t]);
@@ -151,6 +156,9 @@ export default function ProcedureListView({
               spellCheck={false}
               enterKeyHint="search"
               value={query}
+              // Below 768px the field moves under the header on focus, so the
+              // matches fill the space above the keyboard; Search closes it.
+              phoneSearch
               onChange={(e) => setQuery(e.target.value)}
             />
             <SourceNote
@@ -165,13 +173,22 @@ export default function ProcedureListView({
 
         {matches ? (
           matches.length > 0 ? (
-            <InsetGroup heading={t("procedures.count", { n: matches.length })} headingId="procedure-matches">
+            <InsetGroup
+              heading={t(matches.length === 1 ? "procedures.countOne" : "procedures.count", { n: matches.length })}
+              headingId="procedure-matches"
+            >
               {matches.map((row) => (
                 <ProcedureRow key={row[0]} row={row} />
               ))}
             </InsetGroup>
           ) : (
-            <EmptyState icon="search" title={t("procedures.noMatch", { q: trimmed })} />
+            // A next step, not a dead end: the CGHS list covers far more treatments.
+            <EmptyState
+              icon="search"
+              title={t("procedures.noMatch", { q: trimmed })}
+              body={t("procedures.noMatchBody")}
+              action={{ href: "/rates", label: ratesLabel }}
+            />
           )
         ) : (
           <div className="space-y-8">
@@ -186,11 +203,12 @@ export default function ProcedureListView({
         )}
       </div>
 
-      <div className="mt-10">
-        <ActionLink href="/rates">
-          {t("procedures.ratesLink", { n: cghsLineItems.toLocaleString("en-IN") })}
-        </ActionLink>
-      </div>
+      {/* The empty state already carries this link; don't repeat it right below. */}
+      {matches?.length !== 0 && (
+        <div className="mt-10">
+          <ActionLink href="/rates">{ratesLabel}</ActionLink>
+        </div>
+      )}
 
       <PageNotes anchor="market-prices">
         <p>{t("procedure.footerNote")}</p>

@@ -17,11 +17,22 @@ const SHEET = "mt-auto max-h-[92dvh] rounded-t-sheet md:m-auto md:max-w-[640px] 
 const FULL =
   "h-[100dvh] max-h-none rounded-none md:mx-auto md:mt-24 md:mb-auto md:h-auto md:max-h-[calc(100dvh-8rem)] md:max-w-[640px] md:rounded-sheet";
 
+/** True when (x, y) lies outside the dialog's own box, i.e. on the ::backdrop. */
+function outsideBox(dialog: HTMLDialogElement, x: number, y: number): boolean {
+  const r = dialog.getBoundingClientRect();
+  return x < r.left || x > r.right || y < r.top || y > r.bottom;
+}
+
 /**
  * Native <dialog> opened with showModal(): focus trap, Escape, inert
  * background and top layer for free. `onClose` runs however it closes
  * (Escape, the X button, a tap on the scrim, or `open` turning false).
  * `full` gives the SearchSheet geometry.
+ *
+ * A scrim tap is a press that starts and ends outside the dialog's box. A
+ * click on the dialog's own blank area (below short content in the
+ * full-screen sheet, where people tap to drop the keyboard) never closes it,
+ * and neither does a drag that ends on the scrim.
  */
 export function Sheet({
   open,
@@ -38,6 +49,7 @@ export function Sheet({
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
+  const pressedOutside = useRef(false);
   const titleId = useId();
 
   useEffect(() => {
@@ -52,9 +64,14 @@ export function Sheet({
       ref={ref}
       aria-labelledby={titleId}
       onClose={() => onClose()}
+      onPointerDown={(e) => {
+        pressedOutside.current = e.target === e.currentTarget && outsideBox(e.currentTarget, e.clientX, e.clientY);
+      }}
       onClick={(e) => {
-        // A click whose target is the <dialog> itself landed on the scrim.
-        if (e.target === e.currentTarget) e.currentTarget.close();
+        const dialog = e.currentTarget;
+        const scrim = pressedOutside.current && e.target === dialog && outsideBox(dialog, e.clientX, e.clientY);
+        pressedOutside.current = false;
+        if (scrim) dialog.close();
       }}
       className={cx(COMMON, full ? FULL : SHEET)}
     >

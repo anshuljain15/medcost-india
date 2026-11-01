@@ -33,11 +33,22 @@ export default async function HospitalDetailPage({ params }: Params) {
   // build_procedures.py's build_hospital_index must change with this line.
   const isBangalore = city === "bangalore";
   // Only this hospital's own price per treatment reaches the client, not
-  // every procedure's full hospital list.
+  // every procedure's full hospital list. Rows whose typical price falls
+  // outside their own min–max were already dropped in lib/data.ts.
   const prices: HospitalPriceRow[] = isBangalore
     ? getProceduresAtHospital(slug).flatMap((p) => {
         const hp = p.hospitalPrices.find((x) => x.hospitalSlug === slug);
-        return hp ? [{ slug: p.slug, name: p.name, min: hp.min, max: hp.max, avg: hp.avg }] : [];
+        if (!hp) return [];
+        return [
+          {
+            slug: p.slug,
+            name: p.name,
+            min: hp.min,
+            max: hp.max,
+            avg: hp.avg,
+            sourceUrl: p.sourceUrl,
+          },
+        ];
       })
     : [];
   // Loaded here, in the server component, and handed down as a prop: importing
