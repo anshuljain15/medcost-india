@@ -185,7 +185,6 @@ export default function BillCheckView({ refs, nppaUrl }: { refs: MedicineRef[]; 
             <ShareButton
               text={t("bill.shareText", { n: checked.length, above, saving: formatINR(Math.round(saving)) })}
               path="/check-bill"
-              onDark
             />
           </div>
         </section>
